@@ -271,13 +271,8 @@ export function ChatWindow(props: { conversationId: string }) {
 					mb={1}
 					color={"white"}
 				>
-					Eddie's Assistant 🦜🔗
+					🍺 Eddie's Assistant 🥩
 				</Heading>
-				{messages.length > 0 ? (
-					<Heading fontSize="md" fontWeight={"normal"} mb={1} color={"white"}>
-						We appreciate feedback!
-					</Heading>
-				) : (
 					<Heading
 						fontSize="xl"
 						fontWeight={"normal"}
@@ -285,9 +280,9 @@ export function ChatWindow(props: { conversationId: string }) {
 						marginTop={"10px"}
 						textAlign={"center"}
 					>
-						Ask me anything!&apos;s{" "}
+						Ask me anything!{" "}
 					</Heading>
-				)}
+				
 				<div className="text-white flex flex-wrap items-center mt-4">
 					<div className="flex items-center mb-2">
 						<span className="shrink-0 mr-2">Powered by</span>
