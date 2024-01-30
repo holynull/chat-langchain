@@ -5,8 +5,15 @@ import { sendFeedback } from "../utils/sendFeedback";
 export type Source = {
   url: string;
   title: string;
+  img_src:string;
 };
-
+function imageTag(img_src:string){
+	if (img_src){
+		return <img src={img_src}></img>
+	}else{
+		return
+	}
+}
 export function SourceBubble({
   source,
   highlighted,
@@ -45,6 +52,7 @@ export function SourceBubble({
         <Heading size={"sm"} fontWeight={"normal"} color={"white"}>
           {source.title}
         </Heading>
+		{imageTag(source.img_src)}
       </CardBody>
     </Card>
   );
