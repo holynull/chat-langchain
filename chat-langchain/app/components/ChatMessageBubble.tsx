@@ -299,7 +299,6 @@ export function ChatMessageBubble(props: {
           </Heading>
         </>
       )}
-
       {isUser ? (
         <Heading size="lg" fontWeight="medium" color="white">
           {content}
@@ -366,6 +365,7 @@ export function ChatMessageBubble(props: {
           </HStack>
         )}
 
+	{/* {isUser && showProcessingTip(props.processingTip)} */}
       {!isUser && <Divider mt={4} mb={4} />}
     </VStack>
   );

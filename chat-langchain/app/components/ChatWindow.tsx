@@ -21,6 +21,7 @@ import {
 	InputGroup,
 	InputRightElement,
 	Spinner,
+	Box,
 } from "@chakra-ui/react";
 import { ArrowUpIcon } from "@chakra-ui/icons";
 import { Select, Link } from "@chakra-ui/react";
@@ -30,6 +31,23 @@ import { ChatPromptValue } from "@langchain/core/prompt_values"
 import { AIMessage, FunctionMessage, AIMessageChunk, FunctionMessageChunk } from "@langchain/core/messages"
 import { forEach } from "lodash";
 
+const init_msg = "Please input your question."
+const typing_msg="Typing answer...."
+const processing_msg="Processing..."
+const processing_end_msg="Processing end."
+const synthesizing_question_msg="Synthesizing question..."
+const invoking_tool_msg="Invoking tool..."
+function showProcessingTip(processingTip: string) {
+	if (processingTip != "" && processingTip != init_msg) {
+		return <Box className="whitespace-pre-wrap" color="green" padding={".2em"}>
+			{processingTip}
+		</Box>
+	} else {
+		return <Box className="whitespace-pre-wrap" color="red">
+			{processingTip}
+		</Box>
+	}
+}
 export function ChatWindow(props: { conversationId: string }) {
 	const conversationId = props.conversationId;
 
@@ -42,6 +60,7 @@ export function ChatWindow(props: { conversationId: string }) {
 	const [llm, setLlm] = useState(
 		searchParams.get("llm") ?? "openai_gpt_3_5_turbo",
 	);
+	const [processingTip, setProcessingTip] = useState("Please input your question.")
 
 	const [chatHistory, setChatHistory] = useState<
 		{ role: string; content: string }[]
@@ -123,19 +142,45 @@ export function ChatWindow(props: { conversationId: string }) {
 				var _chunk: object
 				if (typeof chunk === "object") {
 					_chunk = chunk as object;
+					console.log(_chunk);
 					if ("run_id" in _chunk) {
 						runId = _chunk.run_id as string;
 					}
 					var kind = "event" in _chunk ? _chunk.event : "";
 					switch (kind) {
 						case "on_chain_start":
-							// console.log("on_chain_start");
+							setProcessingTip(prevVal => {
+								return synthesizing_question_msg
+							})
 							break
 						case "on_chain_end":
-							// console.log("on_chain_end")
+							setProcessingTip(prevVal => {
+								if (prevVal == processing_end_msg) {
+									return init_msg
+								} else if (prevVal != init_msg) {
+									console.log(prevVal)
+									return processing_msg
+								} else {
+									return prevVal
+								}
+							})
+							break
+						case "on_chain_stream":
+							break
+						case "on_chat_model_start":
+							setProcessingTip(prevVal => {
+								return processing_msg
+							})
+							break
+						case "on_chat_model_end":
+							setProcessingTip(prevVal => {
+								return processing_end_msg
+							})
 							break
 						case "on_chat_model_stream":
-							// console.log("on_chat_model_stream")
+							setProcessingTip(prevVal => {
+								return typing_msg
+							})
 							if ("data" in _chunk) {
 								var data = _chunk.data as object
 								if ("chunk" in data && data.chunk instanceof AIMessageChunk) {
@@ -143,7 +188,7 @@ export function ChatWindow(props: { conversationId: string }) {
 									accumulatedMessage += aichunk.content.toString();
 								}
 							}
-							const parsedResult = marked.parse(accumulatedMessage);
+							var parsedResult = marked.parse(accumulatedMessage);
 							setMessages((prevMessages) => {
 								let newMessages = [...prevMessages];
 								if (
@@ -167,12 +212,11 @@ export function ChatWindow(props: { conversationId: string }) {
 							});
 							break
 						case "on_tool_start":
-							// console.log("on_tool_start")
-							// console.log(_chunk)
+							setProcessingTip(prevVal => {
+								return invoking_tool_msg 
+							})
 							break
 						case "on_tool_end":
-							// console.log("on_tool_end")
-							// console.log(_chunk)
 							if ("name" in _chunk && _chunk.name == "search") {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
@@ -223,6 +267,7 @@ export function ChatWindow(props: { conversationId: string }) {
 						default:
 							break
 					}
+
 				}
 			}
 			setChatHistory((prevChatHistory) => [
@@ -273,16 +318,16 @@ export function ChatWindow(props: { conversationId: string }) {
 				>
 					🍺 Eddie's Assistant 🥩
 				</Heading>
-					<Heading
-						fontSize="xl"
-						fontWeight={"normal"}
-						color={"white"}
-						marginTop={"10px"}
-						textAlign={"center"}
-					>
-						Ask me anything!{" "}
-					</Heading>
-				
+				<Heading
+					fontSize="xl"
+					fontWeight={"normal"}
+					color={"white"}
+					marginTop={"10px"}
+					textAlign={"center"}
+				>
+					Ask me anything!{" "}
+				</Heading>
+
 				<div className="text-white flex flex-wrap items-center mt-4">
 					<div className="flex items-center mb-2">
 						<span className="shrink-0 mr-2">Powered by</span>
@@ -298,6 +343,9 @@ export function ChatWindow(props: { conversationId: string }) {
 							<option value="openai_gpt_3_5_turbo_1106">GPT-3.5-Turbo</option>
 						</Select>
 					</div>
+				</div>
+				<div className="flex flex-wrap items-center mt-4">
+					{showProcessingTip(processingTip)}
 				</div>
 			</Flex>
 			<div
@@ -316,7 +364,7 @@ export function ChatWindow(props: { conversationId: string }) {
 								messageCompleted={!isLoading}
 							></ChatMessageBubble>
 						))
-				 }
+				}
 			</div>
 			<InputGroup size="md" alignItems={"center"}>
 				<AutoResizeTextarea
