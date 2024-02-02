@@ -135,108 +135,36 @@ def create_agent_executor() -> AgentExecutor:
 
     tradingview = TradingviewWrapper(llm=llm)
 
-    newsSearch = GoogleSerperAPIWrapper(type="news", tbs="qdr:h")
-
     @tool
-    def searchForGoogleNews(query: str):
-        """Search for Google News based on the query."""
-        return newsSearch.results(query=query)["news"]
-
-    searchWebpage = GoogleSerperAPIWrapper()
-
-    @tool
-    def search(query: str):
-        """Search for a webpage with Google based on the query."""
-        return searchWebpage.results(query=query)["organic"]
-
-    metaphor = Metaphor(api_key=os.environ["METAPHOR_API_KEY"])
-
-    @tool
-    def search_1(query: str, include_domains=None, start_published_date=None):
-        """Search for a webpage based on the query.
-        Set the optional include_domains (list[str]) parameter to restrict the search to a list of domains.
-        Set the optional start_published_date (str) parameter to restrict the search to documents published after the date (YYYY-MM-DD).
+    def search(query: str, search_type: str = None) -> str:
+        """Search for a webpage with Google based on the query.
+        Set the optional search_type (str) parameter to specify whether to search news (search_type='news') or web pages (search_type=None).
         """
-        r = []
-        results = metaphor.search(
-            f"{query}",
-            use_autoprompt=True,
-            num_results=10,
-            include_domains=include_domains,
-            start_published_date=start_published_date,
-        )
-        for rr in results.results:
-            o = {
-                "title": rr.title,
-                "url": rr.url,
-                "id": rr.id,
-                "score": rr.score,
-                "published_date": rr.published_date,
-                "author": rr.author,
-                "extract": rr.extract,
-            }
-            r.append(o)
-        return (
-            json.dumps(r)
-            if len(r) > 0
-            else f"There is no any result for query: {query}"
-        )
-
-    @tool
-    def search_extract(question: str, include_domains=None, start_published_date=None):
-        """Useful for when you need to answer questions about current events or the current state of the world or you need to ask with search.
-        Set the optional include_domains (list[str]) parameter to restrict the search to a list of domains.
-        Set the optional start_published_date (str) parameter to restrict the search to documents published after the date (YYYY-MM-DD).
-        """
-        r = []
-        results = metaphor.search(
-            f"{question}",
-            use_autoprompt=True,
-            num_results=10,
-            include_domains=include_domains,
-            start_published_date=start_published_date,
-        )
-        for rr in results.results:
-            o = {
-                "title": rr.title,
-                "url": rr.url,
-                "id": rr.id,
-                "score": rr.score,
-                "published_date": rr.published_date,
-                "author": rr.author,
-                # "extract": rr.extract,
-            }
-            r.append(o)
-        ids = [item["id"] for item in r]
-        extract_result = metaphor.get_contents(ids).contents
-        for r_i in r:
-            r_i["extract"] = [
-                extr.extract for extr in extract_result if extr.id == r_i["id"]
-            ][0]
-        return (
-            json.dumps(r)
-            if len(r) > 0
-            else f"There is no any result for query: {question}"
-        )
-
-    @tool
-    def find_similar(url: str):
-        """Search for webpages similar to a given URL.
-        The url passed in should be a URL returned from `search`.
-        """
-        r = []
-        for rr in metaphor.find_similar(url, num_results=10).results:
-            o = {
-                "title": rr.title,
-                "url": rr.url,
-                "id": rr.id,
-                "score": rr.score,
-                "published_date": rr.published_date,
-                "author": rr.author,
-                "extract": rr.extract,
-            }
-            r.append(o)
-        return json.dumps(r) if len(r) > 0 else f"There is no any result for url: {url}"
+        if search_type == "news":
+            newsSearch = GoogleSerperAPIWrapper(type=search_type, tbs="qdr:h")
+            return json.dumps(
+                [
+                    {
+                        # "title": r["title"],
+                        "link": r["link"],
+                        # "snippet": r["snippet"],
+                        "imageUrl": r["imageUrl"],
+                    }
+                    for r in newsSearch.results(query=query)["news"]
+                ]
+            )
+        else:
+            searchWebpage = GoogleSerperAPIWrapper()
+            return json.dumps(
+                [
+                    {
+                        # "title": r["title"],
+                        "link": r["link"],
+                        #  "snippet": r["snippet"],
+                    }
+                    for r in searchWebpage.results(query=query)["organic"]
+                ]
+            )
 
     def remove_html_tags(text):
         """Remove html tags from a string"""
@@ -245,16 +173,34 @@ def create_agent_executor() -> AgentExecutor:
         text = unescape(text)  # Unescape HTML entities
         return text
 
+    from pyppeteer import launch
+
+    async def fetch_page(url):
+        browser = await launch()
+        page = await browser.newPage()
+        await page.goto(url)
+        html_content = await page.content()
+        await browser.close()
+        return html_content
+
     @tool
-    async def get_contents(ids: list[str]):
+    async def get_contents(links: List[str]):
         """Get the contents of a webpage.
-        The ids passed in should be a list of ids returned from `search`.
+        The links passed in should be a list of links returned from `search`.
         """
-        r = []
+        req_tasks = []
+        results = []
+        for url in links:
+            req_tasks.append(fetch_page(url=url))
+            results.append(
+                {
+                    "url": url,
+                }
+            )
+        contents = await asyncio.gather(*req_tasks)
         extract_task = []
-        contents = metaphor.get_contents(ids).contents
-        for rr in contents:
-            no_html = remove_html_tags(rr.extract)
+        for _content in contents:
+            no_html = remove_html_tags(_content)
             prompt = ChatPromptTemplate.from_template(
                 """I have a piece of text that I need you to help summarize, but please ensure that the summary does not exceed 100 words. Here is the text that needs to be summarized: {input}."""
             )
@@ -263,38 +209,36 @@ def create_agent_executor() -> AgentExecutor:
             chain = prompt | model | output_parser
             task = chain.with_config({"verbose": True}).ainvoke({"input": no_html})
             extract_task.append(task)
-            o = {
-                # "id": rr.id,
-                "url": rr.url,
-                "title": rr.title,
-                "author": rr.author,
-            }
-            r.append(o)
         _extracts = await asyncio.gather(*extract_task)
-        for i in range(len(r)):
-            r[i]["extract"] = _extracts[i]
-        return json.dumps(r) if len(r) > 0 else f"There is no any result for ids: {ids}"
+        for i in range(len(results)):
+            results[i]["extract"] = _extracts[i]
+        return json.dumps(results) if len(results) > 0 else f"There is no any result"
 
-    from langchain_community.tools.arxiv.tool import ArxivQueryRun
+    # from langchain_community.tools.arxiv.tool import ArxivQueryRun
+    from arxiv_wrapper import ArxivAPIWrapper
 
-    arxiv = ArxivQueryRun()
+    # arxiv = ArxivQueryRun()
+
+    @tool
+    def arxiv_search(query: str):
+        """A wrapper around Arxiv.org
+        Useful for when you need to answer questions about Physics, Mathematics,
+        Computer Science, Quantitative Biology, Quantitative Finance, Statistics,
+        Electrical Engineering, and Economics
+        from scientific articles on arxiv.org.
+        Input should be a search query."""
+        api_wrapper = ArxivAPIWrapper(doc_content_chars_max=10000)
+        return api_wrapper.run(query=query)
+
+    @tool
+    def arxiv_load(entry_id: str):
+        """Useful for when your need to know the content of some paper on Arxiv.org.
+        Input should be the entry_id return from `arxiv_search`."""
+        api_wrapper = ArxivAPIWrapper(doc_content_chars_max=10000)
+        return api_wrapper.load(query=entry_id)
+
     tools = [
         search,
-        searchForGoogleNews,
-        # search_extract,
-        # find_similar,
-        # get_contents,
-        # Tool(
-        #     name="SearchNews",
-        #     func=newsSearch.run,
-        #     description="""useful when you need search news about some terms. The input to this should be a some terms in English.""",
-        #     coroutine=newsSearch.arun,
-        # ),
-        # Tool(
-        #     name="GetContentFromURL",
-        #     func=getHTMLFromURL,
-        #     description="""useful when you need get the HTML of URL. The input to this should be URL returned from 'SearchNews'.""",
-        # ),
         Tool(
             name="CryptocurrencyLatestQuote",
             func=cmc_last_quote_api.run,
@@ -331,7 +275,8 @@ def create_agent_executor() -> AgentExecutor:
             description="""Useful when you need to know buy and sell signals for a cryptocurrency. The input to this should be a cryptocurrency's symbol.""",
             coroutine=tradingview.abuySellSignal,
         ),
-        arxiv,
+        arxiv_search,
+        arxiv_load,
     ]
     date = datetime.now().strftime("%b %d %Y")
 
