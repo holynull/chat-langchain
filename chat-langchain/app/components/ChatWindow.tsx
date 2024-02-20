@@ -114,7 +114,7 @@ export function ChatWindow(props: { conversationId: string }) {
 			const remoteChain = new RemoteRunnable({
 				url: "http://192.168.3.6:8080/chat",
 				options: {
-					timeout: 300000,
+					timeout: 3000000,
 				},
 			});
 			const llmDisplayName = llm ?? "openai_gpt_3_5_turbo";
