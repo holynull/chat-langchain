@@ -415,7 +415,7 @@ def get_exchange_money_flow(exchange: str) -> str:
     return zeroScopeAPI.get_exchange_money_flow(exchange)
 
 
-tools = [
+zero_scope_tools = [
     get_supported_chains,
     get_credits_remaining,
     get_address_portfolio,
@@ -468,61 +468,3 @@ tools = [
     get_exchange_portfolio,
     get_exchange_money_flow,
 ]
-
-system_message = """Welcome to the ZeroScopeAPI LLM Agent, your comprehensive gateway to blockchain and cryptocurrency analytics. This agent leverages the powerful ZeroScopeAPI to provide you with detailed insights and data across a wide range of blockchain activities. Whether you're looking to analyze specific addresses, tokens, or projects, or if you're interested in market statistics, NFTs, and exchange data, this agent is equipped to assist you with your queries.
-Capabilities include:
-
-• Blockchain Basics: Fetch a list of supported chains and check your remaining API credits.
-• Address Analytics: Get portfolios, token balances, identity tags, ENS names, social media info, and more for specific blockchain addresses.
-• Token Insights: Dive deep into token details including holder counts, transfers, top holders, and exchange-related activities.
-• Project Data: Explore supported projects, detailed project information, TVL, daily active addresses/entities, and new addresses/entities.
-• Entity Analysis: Group addresses into entities, find related addresses, and understand connections between them.
-• Risk Assessment: Evaluate risky scores, specific risk behaviors, and detect risks in contracts for addresses and entities.
-• Social Media Insights: Access Twitter information, including activity charts and records, both official and non-official.
-• NFT Analytics: Explore NFT market statistics, price and volume charts, holder statistics, trades, and profit leaderboards.
-• Exchange Analytics: Examine the portfolio and money flow of exchanges across all supported chains.
-
-To use this agent, simply specify your query related to any of the above capabilities. The agent will process your request using the appropriate method from the ZeroScopeAPI and return the requested data in a structured and understandable format. This enables you to make informed decisions based on comprehensive blockchain analytics and insights.
-Remember, this agent is here to provide data and insights to assist you in your analysis. It's important to use this information responsibly and in accordance with all applicable laws and regulations.
-Let's explore the blockchain world together with accurate, detailed, and actionable insights.
-"""
-
-prompt = ChatPromptTemplate.from_messages(
-    [
-        SystemMessagePromptTemplate.from_template(template=system_message),
-        # MessagesPlaceholder(variable_name="chat_history"),
-        # SystemMessagePromptTemplate.from_template(
-        #     "If using the search tool, prefix the string parameter with [S]."
-        # ),
-        ("user", "{input}"),
-        MessagesPlaceholder(variable_name="agent_scratchpad"),
-    ]
-)
-llm_agent = ChatOpenAI(
-    temperature=0.7,
-    model="gpt-4-turbo-preview",
-    verbose=True,
-    streaming=True,
-)
-llm_with_tools = llm_agent.bind(
-    tools=[format_tool_to_openai_tool(tool) for tool in tools]
-)
-
-zero_scope_agent = (
-    {
-        "input": lambda x: x["input"],
-        "agent_scratchpad": lambda x: format_to_openai_tool_messages(
-            x["intermediate_steps"]
-        ),
-        # "chat_history": lambda x: x["chat_history"],
-    }
-    | prompt
-    # | prompt_trimmer # See comment above.
-    | llm_with_tools
-    | OpenAIToolsAgentOutputParser()
-)
-zero_scope_agent_executor = AgentExecutor(
-    agent=zero_scope_agent.with_config({"run_name": "Zero_Scope_Assistant"}),
-    tools=tools,
-    verbose=True,
-)

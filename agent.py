@@ -303,6 +303,9 @@ def create_agent_executor() -> AgentExecutor:
         arxiv_search,
         arxiv_load,
     ]
+    from zero_scope_tools import zero_scope_tools
+
+    tools += zero_scope_tools
     date = datetime.now().strftime("%b %d %Y")
 
     system_message = (
