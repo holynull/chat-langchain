@@ -144,3 +144,5 @@ pyvenv.cfg
 node_modules/
 .envrc
 test.json
+test.py
+test.md
