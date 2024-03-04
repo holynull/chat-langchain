@@ -133,6 +133,17 @@ def create_agent_executor() -> AgentExecutor:
         verbose=True,
     )
 
+    @tool
+    def getTokenMetadata(symbol: str) -> str:
+        """
+        Useful when you need get the metadata of a token.
+        """
+        url = (
+            f"https://pro-api.coinmarketcap.com/v2/cryptocurrency/info?symbol={symbol}"
+        )
+        response = requests.get(url, headers=headers)
+        return json.dumps(response.json())
+
     tradingview = TradingviewWrapper(llm=llm)
 
     @tool
@@ -270,30 +281,31 @@ def create_agent_executor() -> AgentExecutor:
             description="""useful when you need get a cryptocurrency's latest quote. The input to this should be a single cryptocurrency's symbol.""",
             coroutine=cmc_last_quote_api.arun,
         ),
-        Tool(
-            name="TrendingLatest",
-            func=cmc_trending_latest_api.run,
-            description="""useful when you need get a list of all trending cryptocurrency market data, determined and sorted by CoinMarketCap search volume. The input to this should be a complete question in English, and the question must have a ranking requirement, and the ranking cannot exceed 20.""",
-            coroutine=cmc_trending_latest_api.arun,
-        ),
-        Tool(
-            name="TrendingGainersAndLosers",
-            func=cmc_trending_gainers_losers_api.run,
-            description="""useful when you need get a list of all trending cryptocurrencies, determined and sorted by the largest price gains or losses. The input to this should be a complete question in English, and the question must have a ranking requirement, and the ranking cannot exceed 20.""",
-            coroutine=cmc_trending_gainers_losers_api.arun,
-        ),
-        Tool(
-            name="TrendingMostVisited",
-            func=cmc_trending_most_visited_api.run,
-            description="""useful when you need get a list of all trending cryptocurrency market data, determined and sorted by traffic to coin detail pages. The input to this should be a complete question in English, and the question must have a ranking requirement, and the ranking cannot exceed 20.""",
-            coroutine=cmc_trending_most_visited_api.arun,
-        ),
-        Tool(
-            name="MetaDataOfCryptocurrency",
-            func=cmc_metadata_api.run,
-            description="""useful when you need get all static metadata available for one or more cryptocurrencies. This information includes details like logo, description, official website URL, social links, and links to a cryptocurrency's technical documentation. The input to this should be a complete question in English.""",
-            coroutine=cmc_metadata_api.arun,
-        ),
+        # Tool(
+        #     name="TrendingLatest",
+        #     func=cmc_trending_latest_api.run,
+        #     description="""useful when you need get a list of all trending cryptocurrency market data, determined and sorted by CoinMarketCap search volume. The input to this should be a complete question in English, and the question must have a ranking requirement, and the ranking cannot exceed 20.""",
+        #     coroutine=cmc_trending_latest_api.arun,
+        # ),
+        # Tool(
+        #     name="TrendingGainersAndLosers",
+        #     func=cmc_trending_gainers_losers_api.run,
+        #     description="""useful when you need get a list of all trending cryptocurrencies, determined and sorted by the largest price gains or losses. The input to this should be a complete question in English, and the question must have a ranking requirement, and the ranking cannot exceed 20.""",
+        #     coroutine=cmc_trending_gainers_losers_api.arun,
+        # ),
+        # Tool(
+        #     name="TrendingMostVisited",
+        #     func=cmc_trending_most_visited_api.run,
+        #     description="""useful when you need get a list of all trending cryptocurrency market data, determined and sorted by traffic to coin detail pages. The input to this should be a complete question in English, and the question must have a ranking requirement, and the ranking cannot exceed 20.""",
+        #     coroutine=cmc_trending_most_visited_api.arun,
+        # ),
+        # Tool(
+        #     name="MetaDataOfCryptocurrency",
+        #     func=cmc_metadata_api.run,
+        #     description="""useful when you need get all static metadata available for one or more cryptocurrencies. The input to this should be a complete question in English.""",
+        #     coroutine=cmc_metadata_api.arun,
+        # ),
+        getTokenMetadata,
         Tool(
             name="BuyOrSellSignal",
             func=tradingview.buySellSignal,
@@ -303,32 +315,23 @@ def create_agent_executor() -> AgentExecutor:
         arxiv_search,
         arxiv_load,
     ]
-    from zero_scope_tools import zero_scope_tools
+    from zero_scope_agent import zero_scope_tools
 
     tools += zero_scope_tools
     date = datetime.now().strftime("%b %d %Y")
 
     system_message = (
         f"Today is {date}.\n\n"
-        + """Not only act as a useful assistant, but also as a cryptocurrency investment assistant and a useful assistant, your persona should be knowledgeable, trustworthy, and professional. You should stay informed about current trends in the cryptocurrency market, as well as the broader financial world. You should have a deep understanding of different cryptocurrencies, blockchain technology, and market analysis methods.
-Here's a breakdown of the persona and style:
-**Knowledgeable:** Given the complex nature of cryptocurrency investment, you should demonstrate a clear understanding of the crypto market and provide insightful and accurate information. Your knowledge and confidence will assure users that they are receiving reliable advice.
-**Trustworthy:** Investments are high-stake actions, so clients need to have full faith in their advisor. Always provide honest, clear, and detailed information. Transparency is key when handling someone else's investments.
-**Professional:** Maintain a high level of professionalism. You should be respectful, patient, and diplomatic, especially when advising on sensitive issues such as investment risks.
-**Proactive:** Keep up-to-date with the latest news and updates in the cryptocurrency market. This includes not only price fluctuations but also relevant legal and regulatory updates that could affect investments.
-**Analytical**: Be able to break down market trends, forecasts, and cryptocurrency performance into digestible information. Use data-driven insights to guide your advice.
-**Educative**: Take the time to explain concepts to novice users who might not have as solid an understanding of cryptocurrencies. This will help them make more informed decisions in the future.
-**Friendly & Approachable:** While maintaining professionalism, you should be friendly and approachable. This will help users feel comfortable asking questions and discussing their investment plans with you. 
-**Reliable:** Offer consistent support and be responsive. Investors often need quick feedback due to the volatile nature of the cryptocurrency market.
-**Adaptable**: Provide personalized advice based on the user's investment goals, risk tolerance, and experience level. 
+        + """You act as a useful assistant.
 
-If you cannot find any results using arxiv, please use Google to search for the arxiv number of the paper, and then use arxiv to search.
+If you don’t know the token’s contract address, please don’t pretend that you do.
 
-If you need to search for recent news, please use the start_published_date parameter.
+When you call a tool and need to know the token address of a cryptocurrency, please find the corresponding token address in the return result of `getTokenMetadata`. 
+If 'getTokenMetadata' contains multiple matching results, ask the user which one to choose.
 
-When you are asked a question about the market trends, do not provide market data only, please provide your analysis based on latest news either.
+If you are unclear or unsure, you can ask the user to provide more information or proactively use search tools. Don't pretend you know.
 
-When asked to predict the future, such as "predict the price of Bitcoin," try to get as much relevant data as possible and predict a range based on current values. Don't answer that you can't predict.
+If you need to search for recent news, please use the start_published_date parameter
 
 When you need to answer questions about current events or the current state of the world, you can search the terms.
 

@@ -1,0 +1,89 @@
+- Can you show me the portfolio of Uniswap V3's main contract address?
+- What is the balance of token SWFTC on Ethereum for 0x6cC5F688a315f3dC28A7781717a9A798a59fDA7b?
+- Retrieve identity tags for address 0x6cC5F688a315f3dC28A7781717a9A798a59fDA7b on Ethereum.
+- What is the ENS name for address 0x690b9a9e9aa1c9db991c7721a92d351db4fac990?
+- What is the address for ENS name builder0x69.eth?
+- Fetch social media information for address 0xb6f165a70e2a394f2981ab2f0fa953c03f1871d4 on Ethereum.
+- List recent WLD token transfers for address 0x6cC5F688a315f3dC28A7781717a9A798a59fDA7b on Ethereum.
+- Get transaction history for address 0x53b3514091B7b90252e5478C041A66e086fcCa46 on Avalanche.
+- Show NFT transactions for address 0x2E7573445B46A305f6b80f86ba56E788b2dB7e68 on Ethereum.
+- Details of address 0x163f8c2467924be0ae7b5347228cabf260318753 on Ethereum.
+- Details of token WLD on Ethereum.
+- How many holders does token 0xe9e7cea3dedca5984780bafc599bd69add087d56 have on Binance Smart Chain?
+- How many holders does token wld have on Ethereum?
+- Token transfer records for 0x6cC5F688a315f3dC28A7781717a9A798a59fDA7b on Ethereum.
+- Who are the top 1000 holders of token WLD on Ethereum?
+- SWFTC's contract address on Ethereum
+- Volume of token SWFTC deposited to CEX hourly on Ethereum.
+- Withdrawal volume of token SWFTC from CEX hourly on Ethereum.
+- Amount of token SWFTC held by CEX addresses on Ethereum.
+- Project details for Curve.
+- Total Value Locked (TVL) of Curve.
+- Daily active addresses of Curve.
+- Daily active entities of Curve.
+- New addresses associated with Curve.
+- New entities associated with Curve.
+- Related addresses for address 0x172059839d80773ec8617c4cb33835175d364cee on Ethereum.
+- Connection reasons between address 0x934b510d4c9103e6a87aef13b816fb080286d649 and address 0xaab900656d7f37ae675f35560f163e2681e38b8a on Ethereum.
+- Risky score of address 0xd533a949740bb3306d119cc777fa900ba034cd52.
+- What project is address 0xd533a949740bb3306d119cc777fa900ba034cd52 belong to?
+- Specific risk behavior of address 0xd533a949740bb3306d119cc777fa900ba034cd52.
+- Entity risk score for address 0xd533a949740bb3306d119cc777fa900ba034cd52 on Ethereum.
+- Detect risks in contract address 0xd533a949740bb3306d119cc777fa900ba034cd52 on Ethereum.
+- Twitter information for project or user address 0x934b510d4c9103e6a87aef13b816fb080286d649.
+- Official Twitter records for address 0x934b510d4c9103e6a87aef13b816fb080286d649 on Ethereum.
+- Non-official Twitter records for address 0xd533a949740bb3306d119cc777fa900ba034cd52 on Ethereum.
+- Information about NFT Cryptopunks.
+- Market statistics for NFT Cryptopunks.
+- Holder statistics for NFT Cryptopunks.
+- Daily holder statistics for NFT Cryptopunks.
+- Top 100 holders of NFT Cryptopunks.
+- NFT profit leaderboard for Cryptopunks on Ethereum.
+- Portfolio of exchange 'Binance' across all chains.
+- Money flow of exchange 'Coinbase' in the past 24 hours.
+
+把以上翻译成中文。有些专业词语可以不用硬翻译，例如 blockchain 中的transfer，不用翻译。
+
+- Can you show me the portfolio of Uniswap V3's main contract address?
+- Ethereum上地址0x6cC5F688a315f3dC28A7781717a9A798a59fDA7b的SWFTC代币余额是多少？
+- 检索地址0x6cC5F688a315f3dC28A7781717a9A798a59fDA7b在Ethereum上的身份标签。
+- 地址0x690b9a9e9aa1c9db991c7721a92d351db4fac990的ENS名称是什么？
+- ENS名称builder0x69.eth的地址是什么？
+- 在Ethereum上获取地址0xb6f165a70e2a394f2981ab2f0fa953c03f1871d4的社交媒体信息。
+- 列出Ethereum上地址0x6cC5F688a315f3dC28A7781717a9A798a59fDA7b最近的WLD代币转账记录。
+- 获取Avalanche上地址0x53b3514091B7b90252e5478C041A66e086fcCa46的交易历史。
+- 显示Ethereum上地址0x2E7573445B46A305f6b80f86ba56E788b2dB7e68的NFT交易记录。
+- Ethereum上地址0x163f8c2467924be0ae7b5347228cabf260318753的详情。
+- Ethereum上代币WLD的详情。
+- Binance Smart Chain上代币0xe9e7cea3dedca5984780bafc599bd69add087d56有多少持有者？
+- Ethereum上代币wld有多少持有者？
+- Token transfer records for 0x6cC5F688a315f3dC28A7781717a9A798a59fDA7b on Ethereum.
+- Ethereum上代币WLD的前1000名持有者是谁？
+- Ethereum上的SWFTC的合约地址。
+- Ethereum上代币SWFTC每小时存到CEX的数量。
+- Ethereum上代币SWFTC每小时从CEX提现的数量。
+- Ethereum上CEX地址持有的代币SWFTC数量。
+- Curve项目的详情。
+- Curve的总锁定价值（TVL）。
+- Curve的每日活跃地址。
+- Curve的每日活跃实体。
+- 与Curve相关的新地址。
+- 与Curve相关的新实体。
+- Ethereum上地址0x172059839d80773ec8617c4cb33835175d364cee的相关地址。
+- Ethereum上地址0x934b510d4c9103e6a87aef13b816fb080286d649与地址0xaab900656d7f37ae675f35560f163e2681e38b8a的连接原因。
+- 地址0xd533a949740bb3306d119cc777fa900ba034cd52的风险评分。
+- 地址0xd533a949740bb3306d119cc777fa900ba034cd52属于哪个项目？
+- 地址0xd533a949740bb3306d119cc777fa900ba034cd52的特定风险行为。
+- Ethereum上地址0xd533a949740bb3306d119cc777fa900ba034cd52的实体风险评分。
+- 在Ethereum上检测合约地址0xd533a949740bb3306d119cc777fa900ba034cd52的风险。
+- 项目或用户地址0x934b510d4c9103e6a87aef13b816fb080286d649的Twitter信息。
+- Ethereum上地址0x934b510d4c9103e6a87aef13b816fb080286d649的官方Twitter记录。
+- Ethereum上地址0xd533a949740bb3306d119cc777fa900ba034cd52的非官方Twitter记录。
+- 关于NFT Cryptopunks的信息。
+- NFT Cryptopunks的市场统计信息。
+- NFT Cryptopunks的持有者统计信息。
+- NFT Cryptopunks的每日持有者统计信息。
+- NFT Cryptopunks的前100名持有者。
+- Ethereum上Cryptopunks的NFT利润排行榜。
+- 交易所'Binance'在所有链上的投资组合。
+- 过去24小时内交易所'Coinbase'的资金流动情况。
