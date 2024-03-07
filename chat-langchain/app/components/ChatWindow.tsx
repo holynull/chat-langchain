@@ -58,7 +58,7 @@ export function ChatWindow(props: { conversationId: string }) {
 	const [input, setInput] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [llm, setLlm] = useState(
-		searchParams.get("llm") ?? "openai_gpt_3_5_turbo",
+		searchParams.get("llm") ?? "anthropic_claude_3_opus",
 	);
 	const [processingTip, setProcessingTip] = useState("Please input your question.")
 
@@ -339,6 +339,7 @@ export function ChatWindow(props: { conversationId: string }) {
 							}}
 							width={"240px"}
 						>
+							<option value="anthropic_claude_3_opus">Anthropic-Claude-3-Opus</option>
 							<option value="openai_gpt_4_turbo_preview">GPT-4-Turbo</option>
 							<option value="openai_gpt_3_5_turbo_1106">GPT-3.5-Turbo</option>
 						</Select>

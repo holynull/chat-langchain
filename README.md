@@ -58,3 +58,16 @@ Question-Answering has the following steps:
 
 Deploy the frontend Next.js app as a serverless Edge function on Vercel [by clicking here]().
 You'll need to populate the `NEXT_PUBLIC_API_BASE_URL` environment variable with the base URL you've deployed the backend under (no trailing slash!).
+
+## 🛠️Configuration
+
+Sample of .env
+
+```
+OPENAI_API_KEY=""
+SERPER_API_KEY=""
+CMC_API_KEY=""
+METAPHOR_API_KEY=""
+ZERO_SCOPE_API_KEY=""
+ANTHROPIC_API_KEY=""
+```

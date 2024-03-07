@@ -1,4 +1,5 @@
 """Main entrypoint for the app."""
+
 import asyncio
 from typing import Any, List, Optional, Union
 from uuid import UUID
@@ -15,7 +16,7 @@ from agent import agent_executor
 
 # client = Client()
 origins = [
-	"*",
+    "*",
     "http://localhost",
     "http://localhost:3000",
     "http://192.168.3.6:3000",
@@ -43,7 +44,9 @@ class Output(BaseModel):
 
 
 api_handler = APIHandler(
-    agent_executor.with_types(input_type=Input, output_type=Output), path="/chat"
+    agent_executor.with_types(input_type=Input, output_type=Output),
+    path="/chat",
+    config_keys=["metadata", "configurable", "tags","llm"],
 )
 
 
@@ -52,6 +55,7 @@ async def simple_invoke(request: Request) -> Response:
     """Handle a request."""
     # The API Handler validates the parts of the request
     # that are used by the runnnable (e.g., input, config fields)
+    print(await request.json())
     return await api_handler.astream_events(request)
 
 
