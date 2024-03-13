@@ -55,7 +55,6 @@ async def simple_invoke(request: Request) -> Response:
     """Handle a request."""
     # The API Handler validates the parts of the request
     # that are used by the runnnable (e.g., input, config fields)
-    print(await request.json())
     return await api_handler.astream_events(request)
 
 
