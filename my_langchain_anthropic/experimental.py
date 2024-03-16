@@ -24,7 +24,7 @@ from langchain_core.messages import (
     BaseMessage,
     BaseMessageChunk,
     SystemMessage,
-    ToolMessage
+    ToolMessage,
 )
 from langchain_core.output_parsers.openai_tools import (
     JsonOutputKeyToolsParser,
@@ -40,7 +40,7 @@ from my_langchain_anthropic.chat_models import ChatAnthropic
 
 SYSTEM_PROMPT_FORMAT = """In this environment you have access to a set of tools you can use to answer the user's question.
 
-You may call them like this:
+You just tell user you will call them like this, and no need answer anything:
 <function_calls>
 <invoke>
 <tool_name>$TOOL_NAME</tool_name>
@@ -250,7 +250,7 @@ class ChatAnthropicTools(ChatAnthropic):
         )
         to_yield = result.generations[0]
         chunk = ChatGenerationChunk(
-            message=cast(BaseMessageChunk, to_yield.message),
+            message=cast(AIMessageChunk, to_yield.message),
             generation_info=to_yield.generation_info,
         )
         if run_manager:
@@ -267,10 +267,10 @@ class ChatAnthropicTools(ChatAnthropic):
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
         # streaming not supported for functions
-        print("astream")
         result = await self._agenerate(
             messages=messages, stop=stop, run_manager=run_manager, **kwargs
         )
+        # for generation in result.generations:
         to_yield = result.generations[0]
         chunk = ChatGenerationChunk(
             message=cast(AIMessageChunk, to_yield.message),
@@ -284,30 +284,76 @@ class ChatAnthropicTools(ChatAnthropic):
 
     def _format_output(self, data: Any, **kwargs: Any) -> ChatResult:
         """Format the output of the model, parsing xml as a tool call."""
-        text = data.content[0].text
+        if isinstance(data, str):
+            text = data
+            data = {"text": text}
+        else:
+            text = data.content[0].text
         tools = kwargs.get("tools", None)
 
         additional_kwargs: Dict[str, Any] = {}
 
+        # 新增一个列表来存储每个generation映射的tool_calls
+        tool_calls_list = []
         if tools:
-            # parse out the xml from the text
             try:
-                # get everything between <function_calls> and </function_calls>
-                start = text.find("<function_calls>")
-                end = text.find("</function_calls>") + len("</function_calls>")
-                xml_text = text[start:end]
+                # 将text按照function_calls进行分割，每个部分将处理一个function_calls标签
+                parts = text.split("<function_calls>")
+                for part in parts[
+                    1:
+                ]:  # 跳过第一个分割结果，因为它在第一个function_calls标签之前
+                    end = part.find("</function_calls>") + len("</function_calls>")
+                    xml_text = "<function_calls>" + part[:end]
 
-                xml = self._xmllib.fromstring(xml_text)
-                additional_kwargs["tool_calls"] = _xml_to_tool_calls(xml, tools)
-                # text = ""
-            except Exception:
-                pass
+                    # 解析XML文本，获取tool_calls
+                    xml = self._xmllib.fromstring(xml_text)
+                    tool_calls = _xml_to_tool_calls(xml, tools)
+                    tool_calls_list.append(
+                        {"tool_calls": tool_calls, "xml_text": xml_text}
+                    )
 
-        return ChatResult(
-            generations=[
+                    # 在这里，我们只记录tool_calls，以便稍后将它们分配给相应的generation
+                    # 如果需要保留非function_calls的文本部分，也应该在这里处理
+
+            except Exception as e:
+                print(f"Error parsing function_calls: {e}")
+            # 生成ChatResult的generations，每个generation对应一个tool_calls
+            generations = [
                 ChatGeneration(
-                    message=AIMessageChunk(content=text, additional_kwargs=additional_kwargs)
+                    message=AIMessageChunk(
+                        content="",  # 根据需要填充或保留为空
+                        additional_kwargs={
+                            "tool_calls": tool_calls["tool_calls"],
+                            "xml_text": tool_calls["xml_text"],
+                        },  # 为每个generation分配对应的tool_calls
+                    )
                 )
-            ],
-            llm_output=data,
-        )
+                for tool_calls in tool_calls_list
+            ]
+            if len(tool_calls_list) > 0:
+                return ChatResult(
+                    generations=generations,
+                    llm_output=data,
+                )
+            else:
+                return ChatResult(
+                    generations=[
+                        ChatGeneration(
+                            message=AIMessageChunk(
+                                content="", additional_kwargs=additional_kwargs
+                            )
+                        )
+                    ],
+                    llm_output=data,
+                )
+        else:
+            return ChatResult(
+                generations=[
+                    ChatGeneration(
+                        message=AIMessageChunk(
+                            content="", additional_kwargs=additional_kwargs
+                        )
+                    )
+                ],
+                llm_output=data,
+            )

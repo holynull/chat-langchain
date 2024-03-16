@@ -17,6 +17,7 @@ from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
     BaseMessage,
+    ToolMessage,
 )
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.pydantic_v1 import Field, SecretStr, root_validator
@@ -128,7 +129,21 @@ def _format_messages(messages: List[BaseMessage]) -> Tuple[Optional[str], List[D
                         f"Content items must be str or dict, instead was: {type(item)}"
                     )
         else:
-            content = message.content
+            if isinstance(message, ToolMessage):
+                content = f"""
+<function_results>
+    <result>
+        <tool_name>{message.additional_kwargs["name"]}</tool_name>
+        <stdout>
+            {message.content}
+        </stdout>
+    </result>
+</function_results>
+"""
+            elif isinstance(message, AIMessageChunk):
+                content = message.additional_kwargs["xml_text"]
+            else:
+                content = message.content
 
         formatted_messages.append(
             {
@@ -256,6 +271,21 @@ class ChatAnthropic(BaseChatModel):
                     run_manager.on_llm_new_token(text, chunk=chunk)
                 yield chunk
 
+    def _my_stream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        params = self._format_params(messages=messages, stop=stop, **kwargs)
+        with self._client.messages.stream(**params) as stream:
+            for text in stream.text_stream:
+                chunk = ChatGenerationChunk(message=AIMessageChunk(content=text))
+                if run_manager:
+                    run_manager.on_llm_new_token(text, chunk=chunk)
+                yield chunk
+
     async def _astream(
         self,
         messages: List[BaseMessage],
@@ -291,7 +321,7 @@ class ChatAnthropic(BaseChatModel):
         **kwargs: Any,
     ) -> ChatResult:
         if self.streaming:
-            stream_iter = self._stream(
+            stream_iter = self._my_stream(
                 messages, stop=stop, run_manager=run_manager, **kwargs
             )
             return generate_from_stream(stream_iter)
@@ -306,14 +336,29 @@ class ChatAnthropic(BaseChatModel):
         run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
-        print("astream_my")
         params = self._format_params(messages=messages, stop=stop, **kwargs)
         async with self._async_client.messages.stream(**params) as stream:
+            n = 0
+            t = ""
+            no_stream_out = False
             async for text in stream.text_stream:
-                chunk = ChatGenerationChunk(message=AIMessageChunk(content=text))
-                if run_manager:
-                    await run_manager.on_llm_new_token(text, chunk=chunk)
-                yield chunk
+                if n < 9 and not no_stream_out:
+                    t = t + text
+                    n = n + 1
+                    continue
+                elif n == 9:
+                    n = n + 1
+                    t = t + text
+                    if "<function_calls>" in t:
+                        no_stream_out = True
+                        chunk = ChatGenerationChunk(message=AIMessageChunk(content=t))
+                        yield chunk
+                else:
+                    chunk = ChatGenerationChunk(message=AIMessageChunk(content=text))
+                    if not no_stream_out:
+                        if run_manager:
+                            await run_manager.on_llm_new_token(text, chunk=chunk)
+                    yield chunk
 
     async def _agenerate(
         self,
@@ -322,15 +367,18 @@ class ChatAnthropic(BaseChatModel):
         run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        print("agenerate")
         if self.streaming:
             stream_iter = self._astream_my(
                 messages, stop=stop, run_manager=run_manager, **kwargs
             )
-            result = await agenerate_from_stream(stream_iter)
-            # print(type(result))
-            # print(result)
-            return self._format_output_my(result.generations[0].text)
+            generation = ""
+            async for chunk in stream_iter:
+                if generation is None:
+                    generation = chunk.message.content
+                else:
+                    generation += chunk.message.content
+            # result = await agenerate_from_stream(stream_iter)
+            return self._format_output(generation, **kwargs)
         params = self._format_params(messages=messages, stop=stop, **kwargs)
         data = await self._async_client.messages.create(**params)
         resutl = self._format_output(data, **kwargs)

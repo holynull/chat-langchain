@@ -138,7 +138,6 @@ export function ChatWindow(props: { conversationId: string }) {
 				// },
 			);
 			for await (const chunk of streams) {
-				// console.log(chunk)
 				var _chunk: object
 				if (typeof chunk === "object") {
 					_chunk = chunk as object;

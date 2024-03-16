@@ -22,7 +22,6 @@ def parse_ai_message_to_anthropic_tool_action(
 ) -> Union[List[AgentAction], AgentFinish]:
     """Parse an AI message potentially containing tool_calls."""
     if not isinstance(message, AIMessage):
-        print(message.content)
         raise TypeError(f"Expected an AI message got {type(message)}")
 
     if not message.additional_kwargs.get("tool_calls"):
