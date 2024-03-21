@@ -271,10 +271,33 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
             result += "\n" + remove_html_tags(soup.prettify())
         return result
 
+    from defillama_wrapper import DefiLLamaWrapTVLPtotocols
+
+    tvlPotocols = DefiLLamaWrapTVLPtotocols()
+
+    @tool
+    def getTVLOfDefiProject(question: str) -> str:
+        """ "useful when you need get TVL and info of defi project. The input to this should be a complete question about tvl."""
+        agent = tvlPotocols.create_agent()
+        agent = tvlPotocols.create_agent().with_config({"configurable": {"llm": "openai_gpt_4_turbo_preview"}})
+        excutor = AgentExecutor(
+            agent=agent,
+            tools=tvlPotocols.tools,
+            verbose=True,
+        )
+        return excutor.invoke({"input": question})
+
+    @tool
+    def fetchTVLOfDefiProject() -> str:
+        """ "useful when you need fetch TVL and info of defi project."""
+        return tvlPotocols.fetch()
+
     tools = [
         search,
         getHTMLFromURL,
         getHTMLFromURLs,
+        getTVLOfDefiProject,
+        fetchTVLOfDefiProject,
         Tool(
             name="CryptocurrencyLatestQuote",
             func=cmc_last_quote_api.run,

@@ -154,6 +154,9 @@ def _format_messages(messages: List[BaseMessage]) -> Tuple[Optional[str], List[D
     return system, formatted_messages
 
 
+SEARCH_FUNCTION_CALL_SIZE = 20
+
+
 class ChatAnthropic(BaseChatModel):
     """Anthropic chat model.
 
@@ -280,11 +283,27 @@ class ChatAnthropic(BaseChatModel):
     ) -> Iterator[ChatGenerationChunk]:
         params = self._format_params(messages=messages, stop=stop, **kwargs)
         with self._client.messages.stream(**params) as stream:
+            n = 0
+            t = ""
+            no_stream_out = False
             for text in stream.text_stream:
-                chunk = ChatGenerationChunk(message=AIMessageChunk(content=text))
-                if run_manager:
-                    run_manager.on_llm_new_token(text, chunk=chunk)
-                yield chunk
+                if n < SEARCH_FUNCTION_CALL_SIZE - 1 and not no_stream_out:
+                    t = t + text
+                    n = n + 1
+                    continue
+                elif n == SEARCH_FUNCTION_CALL_SIZE - 1:
+                    n = n + 1
+                    t = t + text
+                    if "<function_calls>" in t:
+                        no_stream_out = True
+                        chunk = ChatGenerationChunk(message=AIMessageChunk(content=t))
+                        yield chunk
+                else:
+                    chunk = ChatGenerationChunk(message=AIMessageChunk(content=text))
+                    if not no_stream_out:
+                        if run_manager:
+                            run_manager.on_llm_new_token(text, chunk=chunk)
+                    yield chunk
 
     async def _astream(
         self,
@@ -324,7 +343,15 @@ class ChatAnthropic(BaseChatModel):
             stream_iter = self._my_stream(
                 messages, stop=stop, run_manager=run_manager, **kwargs
             )
-            return generate_from_stream(stream_iter)
+            generation = ""
+            for chunk in stream_iter:
+                if generation is None:
+                    generation = chunk.message.content
+                else:
+                    generation += chunk.message.content
+            # result = await agenerate_from_stream(stream_iter)
+            return self._format_output(generation, **kwargs)
+            # return generate_from_stream(stream_iter)
         params = self._format_params(messages=messages, stop=stop, **kwargs)
         data = self._client.messages.create(**params)
         return self._format_output(data, **kwargs)
@@ -342,11 +369,11 @@ class ChatAnthropic(BaseChatModel):
             t = ""
             no_stream_out = False
             async for text in stream.text_stream:
-                if n < 9 and not no_stream_out:
+                if n < SEARCH_FUNCTION_CALL_SIZE - 1 and not no_stream_out:
                     t = t + text
                     n = n + 1
                     continue
-                elif n == 9:
+                elif n == SEARCH_FUNCTION_CALL_SIZE - 1:
                     n = n + 1
                     t = t + text
                     if "<function_calls>" in t:

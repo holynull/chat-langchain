@@ -286,7 +286,7 @@ class ChatAnthropicTools(ChatAnthropic):
         """Format the output of the model, parsing xml as a tool call."""
         if isinstance(data, str):
             text = data
-            data = {"text": text}
+            data = {"output": text}
         else:
             text = data.content[0].text
         tools = kwargs.get("tools", None)
@@ -337,23 +337,11 @@ class ChatAnthropicTools(ChatAnthropic):
                 )
             else:
                 return ChatResult(
-                    generations=[
-                        ChatGeneration(
-                            message=AIMessageChunk(
-                                content="", additional_kwargs=additional_kwargs
-                            )
-                        )
-                    ],
+                    generations=[ChatGeneration(message=AIMessageChunk(content=text))],
                     llm_output=data,
                 )
         else:
             return ChatResult(
-                generations=[
-                    ChatGeneration(
-                        message=AIMessageChunk(
-                            content="", additional_kwargs=additional_kwargs
-                        )
-                    )
-                ],
+                generations=[ChatGeneration(message=AIMessageChunk(content=text))],
                 llm_output=data,
             )
