@@ -271,15 +271,25 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
             result += "\n" + remove_html_tags(soup.prettify())
         return result
 
-    from defillama_wrapper import DefiLLamaWrapTVLPtotocols
+    from defillama_wrapper import (
+        DefiLLamaWrapTVLofPtotocols,
+        DefiLLamaWrapCirculatingVolumeOfStablecoins,
+        DefiLLamaWrapTotalCirculatingVolumeOfStablecoins,
+        DefiLLamaWrapYeildsAPYOfPools,
+    )
 
-    tvlPotocols = DefiLLamaWrapTVLPtotocols()
+    tvlPotocols = DefiLLamaWrapTVLofPtotocols()
+    cvOfSc = DefiLLamaWrapCirculatingVolumeOfStablecoins()
+    tcvOfSc = DefiLLamaWrapTotalCirculatingVolumeOfStablecoins()
+    apyOfPools = DefiLLamaWrapYeildsAPYOfPools()
 
     @tool
     def getTVLOfDefiProject(question: str) -> str:
         """ "useful when you need get TVL and info of defi project. The input to this should be a complete question about tvl."""
-        agent = tvlPotocols.create_agent()
-        agent = tvlPotocols.create_agent().with_config({"configurable": {"llm": "openai_gpt_4_turbo_preview"}})
+        # agent = tvlPotocols.create_agent()
+        agent = tvlPotocols.create_agent().with_config(
+            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+        )
         excutor = AgentExecutor(
             agent=agent,
             tools=tvlPotocols.tools,
@@ -288,9 +298,117 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
         return excutor.invoke({"input": question})
 
     @tool
-    def fetchTVLOfDefiProject() -> str:
+    def fetchTVLOfDefiProject(question: str) -> str:
         """ "useful when you need fetch TVL and info of defi project."""
-        return tvlPotocols.fetch()
+        return tvlPotocols.fetch(question)
+
+    @tool
+    def getCirculatingVolumeOfStablecoin(question: str) -> str:
+        """ "useful when you need get circulating volume of stablecoin. The input to this should be a complete question about circulating volume."""
+        # agent = tvlPotocols.create_agent()
+        agent = cvOfSc.create_agent().with_config(
+            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+        )
+        excutor = AgentExecutor(
+            agent=agent,
+            tools=cvOfSc.tools,
+            verbose=True,
+        )
+        return excutor.invoke({"input": question})
+
+    @tool
+    def fetchCirculatingVolumeOfStablecoin(question: str) -> str:
+        """ "useful when you need fetch Circulating Volume of stablecoin."""
+        cvOfSc.fetch()
+        return getCirculatingVolumeOfStablecoin(question)
+
+    @tool
+    def getTotalCirculatingVolumeOfStablecoin(question: str) -> str:
+        """ "useful when you need get the volume of fait currency pegged to the chain. The input to this should be a complete question about volume of fait currency pegged."""
+        # agent = tvlPotocols.create_agent()
+        agent = tcvOfSc.create_agent().with_config(
+            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+        )
+        excutor = AgentExecutor(
+            agent=agent,
+            tools=tcvOfSc.tools,
+            verbose=True,
+        )
+        return excutor.invoke({"input": question})
+
+    @tool
+    def fetchTotalCirculatingVolumeOfStablecoin(question: str) -> str:
+        """ "useful when you need fetch the volume of fait currency pegged to."""
+        tcvOfSc.fetch()
+        return getTotalCirculatingVolumeOfStablecoin(question)
+
+    @tool
+    def getYieldsAndAPYOfPools(question: str) -> str:
+        """ "useful when you need get yields or APY of defi pools. The input to this should be a complete question about yields or APY."""
+        # agent = tvlPotocols.create_agent()
+        agent = apyOfPools.create_agent().with_config(
+            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+        )
+        excutor = AgentExecutor(
+            agent=agent,
+            tools=apyOfPools.tools,
+            verbose=True,
+        )
+        return excutor.invoke({"input": question})
+
+    @tool
+    def fetchYieldsAndAPYOfPools(question: str) -> str:
+        """useful when you need fetch yields or APY of defi pools."""
+        apyOfPools.fetch()
+        return getYieldsAndAPYOfPools(question)
+
+    from defillama_wrapper import DefiLLamaWrapInfoOfBridges
+
+    infoOfBridges = DefiLLamaWrapInfoOfBridges()
+
+    @tool
+    def getInfoOfBridges(question: str) -> str:
+        """useful when you need get info of a cross-chain bridges. The input to this should be a complete question about cross-chain bridge."""
+        # agent = tvlPotocols.create_agent()
+        agent = infoOfBridges.create_agent().with_config(
+            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+        )
+        excutor = AgentExecutor(
+            agent=agent,
+            tools=infoOfBridges.tools,
+            verbose=True,
+        )
+        return excutor.invoke({"input": question})
+
+    @tool
+    def fetchInfoOfBridges(question: str) -> str:
+        """useful when you need fetch info of a cross-chain bridges."""
+        infoOfBridges.fetch()
+        return getInfoOfBridges(question)
+
+    from defillama_wrapper import DefiLLamaWrapVolumeOfDex
+
+    vOfDex = DefiLLamaWrapVolumeOfDex()
+
+    @tool
+    def getVolumeOfDex(question: str) -> str:
+        """useful when you need get volume of a Dex. The input to this should be a complete question about dex's volume."""
+        # agent = tvlPotocols.create_agent()
+        agent = vOfDex.create_agent().with_config(
+            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+        )
+        excutor = AgentExecutor(
+            agent=agent,
+            tools=vOfDex.tools,
+            verbose=True,
+        )
+        return excutor.invoke({"input": question})
+
+    @tool
+    def fetchVolumeOfDex(question: str) -> str:
+        """useful when you need fetch volume of a dex."""
+        vOfDex.fetch()
+        return getVolumeOfDex(question)
 
     tools = [
         search,
@@ -298,6 +416,16 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
         getHTMLFromURLs,
         getTVLOfDefiProject,
         fetchTVLOfDefiProject,
+        getCirculatingVolumeOfStablecoin,
+        fetchCirculatingVolumeOfStablecoin,
+        getTotalCirculatingVolumeOfStablecoin,
+        fetchTotalCirculatingVolumeOfStablecoin,
+        getYieldsAndAPYOfPools,
+        fetchYieldsAndAPYOfPools,
+        getInfoOfBridges,
+        fetchInfoOfBridges,
+        getVolumeOfDex,
+        fetchVolumeOfDex,
         Tool(
             name="CryptocurrencyLatestQuote",
             func=cmc_last_quote_api.run,
@@ -502,7 +630,7 @@ You will not attempt to answer users' questions without having received function
 llm_agent = ChatAnthropicTools(
     model="claude-3-opus-20240229",
     # max_tokens=,
-    temperature=0.7,
+    temperature=0.9,
     # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
     streaming=True,
     verbose=True,
