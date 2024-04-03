@@ -1,10 +1,9 @@
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence
 from pathlib import Path
 import sys
 from fastapi import FastAPI
 from dotenv import load_dotenv
 from langchain.agents import Tool
-from my_langchain_anthropic import ChatAnthropic
 from my_langchain_anthropic.experimental import ChatAnthropicTools
 
 # from callback import AgentCallbackHandler
@@ -16,7 +15,6 @@ import re
 from html import unescape
 from openai_assistant_tools import TradingviewWrapper
 from langchain.agents import tool
-from metaphor_python import Metaphor
 import json
 import os
 
@@ -26,16 +24,14 @@ from openai_assistant_tools import GoogleSerperAPIWrapper
 from openai_assistant_tools import MyAPIChain
 
 # from langsmith import Client
-from pydantic import BaseModel, Extra, Field
 from fastapi.middleware.cors import CORSMiddleware
 import openai_assistant_api_docs
 
 import openai_assistant_api_docs
-from langchain.agents import create_openai_tools_agent, AgentExecutor
+from langchain.agents import AgentExecutor
 from langchain_core.prompts import (
     ChatPromptTemplate,
     SystemMessagePromptTemplate,
-    PromptTemplate,
     MessagesPlaceholder,
     HumanMessagePromptTemplate,
 )
@@ -47,7 +43,6 @@ from langchain_community.tools.convert_to_openai import format_tool_to_openai_to
 from langchain.agents.format_scratchpad.openai_tools import (
     format_to_openai_tool_messages,
 )
-from langchain.agents import load_tools
 from anthropic_tools import (
     AnthropicToolsAgentOutputParser,
     format_to_anthropic_tool_messages,
@@ -66,6 +61,10 @@ from langchain_core.runnables import (
     RunnableConfig,
 )
 from langchain_core.runnables.schema import StreamEvent
+
+from langchain_community.chat_models import ChatPerplexity
+
+from langchain import hub
 
 if getattr(sys, "frozen", False):
     script_location = Path(sys.executable).parent.resolve()
@@ -295,12 +294,14 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
             tools=tvlPotocols.tools,
             verbose=True,
         )
-        return excutor.invoke({"input": question})
+        result = excutor.invoke({"input": question})
+        return result["output"]
 
     @tool
     def fetchTVLOfDefiProject(question: str) -> str:
         """ "useful when you need fetch TVL and info of defi project."""
-        return tvlPotocols.fetch(question)
+        tvlPotocols.fetch()
+        return getTVLOfDefiProject(question)
 
     @tool
     def getCirculatingVolumeOfStablecoin(question: str) -> str:
@@ -314,7 +315,8 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
             tools=cvOfSc.tools,
             verbose=True,
         )
-        return excutor.invoke({"input": question})
+        result = excutor.invoke({"input": question})
+        return result["output"]
 
     @tool
     def fetchCirculatingVolumeOfStablecoin(question: str) -> str:
@@ -334,7 +336,8 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
             tools=tcvOfSc.tools,
             verbose=True,
         )
-        return excutor.invoke({"input": question})
+        result = excutor.invoke({"input": question})
+        return result["output"]
 
     @tool
     def fetchTotalCirculatingVolumeOfStablecoin(question: str) -> str:
@@ -354,7 +357,8 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
             tools=apyOfPools.tools,
             verbose=True,
         )
-        return excutor.invoke({"input": question})
+        result = excutor.invoke({"input": question})
+        return result["output"]
 
     @tool
     def fetchYieldsAndAPYOfPools(question: str) -> str:
@@ -378,7 +382,8 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
             tools=infoOfBridges.tools,
             verbose=True,
         )
-        return excutor.invoke({"input": question})
+        result = excutor.invoke({"input": question})
+        return result["output"]
 
     @tool
     def fetchInfoOfBridges(question: str) -> str:
@@ -402,7 +407,8 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
             tools=vOfDex.tools,
             verbose=True,
         )
-        return excutor.invoke({"input": question})
+        result = excutor.invoke({"input": question})
+        return result["output"]
 
     @tool
     def fetchVolumeOfDex(question: str) -> str:
@@ -514,7 +520,16 @@ You will not attempt to answer users' questions without having received function
             ]
         ),
     )
+    from langchain.tools.render import render_text_description
+    from langchain_core.runnables import RunnablePassthrough
+    from langchain.agents.format_scratchpad import format_log_to_str
+    from langchain.agents.output_parsers import ReActSingleInputOutputParser
 
+    react_prompt = hub.pull("hwchase17/react-chat")
+    react_prompt = react_prompt.partial(
+        tools=render_text_description(list(tools)),
+        tool_names=", ".join([t.name for t in tools]),
+    )
     agent = (
         {
             "input": lambda x: x["input"],
@@ -555,6 +570,21 @@ You will not attempt to answer users' questions without having received function
             # | prompt_trimmer # See comment above.
             | llm_agent.bind(tools=[format_tool_to_openai_tool(tool) for tool in tools])
             | OpenAIToolsAgentOutputParser()
+        ),
+        pplx_sonar_medium_chat=(
+            # {
+            #     "input": lambda x: x["input"],
+            #     "agent_scratchpad": lambda x: format_log_to_str(
+            #         x["intermediate_steps"]
+            #     ),
+            #     "chat_history": lambda x: x["chat_history"],
+            # }
+            RunnablePassthrough.assign(
+                agent_scratchpad=lambda x: format_log_to_str(x["intermediate_steps"]),
+            )
+            | react_prompt
+            | llm_agent.bind(stop=["\nObservation"])
+            | ReActSingleInputOutputParser()
         ),
     )
 
@@ -607,6 +637,7 @@ You will not attempt to answer users' questions without having received function
                 agent=configured_agent,
                 tools=tools,
                 verbose=True,
+                handle_parsing_errors=True,
             ).with_config({"run_name": "Eddie's Assistant Agent"})
 
             async for output in executor.astream_events(
@@ -649,6 +680,9 @@ llm_agent = ChatAnthropicTools(
         model="gpt-4-turbo-preview",
         verbose=True,
         streaming=True,
+    ),
+    pplx_sonar_medium_chat=ChatPerplexity(
+        model="sonar-medium-chat", temperature=0.9, verbose=True, streaming=True
     ),
 )
 
