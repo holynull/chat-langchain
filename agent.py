@@ -65,6 +65,8 @@ from langchain_core.runnables.schema import StreamEvent
 from langchain_community.chat_models import ChatPerplexity
 
 from langchain import hub
+from langchain_mistralai.chat_models import ChatMistralAI
+from langchain_cohere import ChatCohere
 
 if getattr(sys, "frozen", False):
     script_location = Path(sys.executable).parent.resolve()
@@ -258,6 +260,17 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
         return soup.prettify()
 
     @tool
+    def getContentFromURL(url: str, tag: str, class_: str) -> str:
+        """Useful when you need to get the text content of the html tag in the URL page.
+        The parameter `url` is the URL link of the page you need to read.
+        The parameters `tag` and `class_` represent extracting the text content of `tag` whose classes attribute is equal to `class_`.
+        """
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, "html.parser")
+        html = soup.find(tag, class_=class_)
+        return remove_html_tags(str(html))
+
+    @tool
     async def getHTMLFromURLs(urls: list[str]) -> str:
         """useful when you need get the HTML of URLs. The input to this should be URL list."""
         req_tasks = []
@@ -418,8 +431,9 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
 
     tools = [
         search,
-        getHTMLFromURL,
-        getHTMLFromURLs,
+        # getHTMLFromURL,
+        # getHTMLFromURLs,
+        getContentFromURL,
         getTVLOfDefiProject,
         fetchTVLOfDefiProject,
         getCirculatingVolumeOfStablecoin,
@@ -530,7 +544,20 @@ You will not attempt to answer users' questions without having received function
         tools=render_text_description(list(tools)),
         tool_names=", ".join([t.name for t in tools]),
     )
-    agent = (
+    openai_agent = (
+        {
+            "input": lambda x: x["input"],
+            "agent_scratchpad": lambda x: format_to_openai_tool_messages(
+                x["intermediate_steps"]
+            ),
+            "chat_history": lambda x: x["chat_history"],
+        }
+        | prompt
+        # | prompt_trimmer # See comment above.
+        | llm_agent.bind(tools=[format_tool_to_openai_tool(tool) for tool in tools])
+        | OpenAIToolsAgentOutputParser()
+    )
+    anthropic_agent = (
         {
             "input": lambda x: x["input"],
             "agent_scratchpad": lambda x: format_to_anthropic_tool_messages(
@@ -542,50 +569,30 @@ You will not attempt to answer users' questions without having received function
         # | prompt_trimmer # See comment above.
         | llm_agent.bind(tools=[convert_to_openai_function(tool) for tool in tools])
         | AnthropicToolsAgentOutputParser()
-    ).configurable_alternatives(
+    )
+    react_agent = (
+        # {
+        #     "input": lambda x: x["input"],
+        #     "agent_scratchpad": lambda x: format_log_to_str(
+        #         x["intermediate_steps"]
+        #     ),
+        #     "chat_history": lambda x: x["chat_history"],
+        # }
+        RunnablePassthrough.assign(
+            agent_scratchpad=lambda x: format_log_to_str(x["intermediate_steps"]),
+        )
+        | react_prompt
+        | llm_agent.bind(stop=["\nObservation"])
+        | ReActSingleInputOutputParser()
+    )
+    agent = anthropic_agent.configurable_alternatives(
         which=ConfigurableField("llm"),
         default_key="anthropic_claude_3_opus",
-        openai_gpt_4_turbo_preview=(
-            {
-                "input": lambda x: x["input"],
-                "agent_scratchpad": lambda x: format_to_openai_tool_messages(
-                    x["intermediate_steps"]
-                ),
-                "chat_history": lambda x: x["chat_history"],
-            }
-            | prompt
-            # | prompt_trimmer # See comment above.
-            | llm_agent.bind(tools=[format_tool_to_openai_tool(tool) for tool in tools])
-            | OpenAIToolsAgentOutputParser()
-        ),
-        openai_gpt_3_5_turbo_1106=(
-            {
-                "input": lambda x: x["input"],
-                "agent_scratchpad": lambda x: format_to_openai_tool_messages(
-                    x["intermediate_steps"]
-                ),
-                "chat_history": lambda x: x["chat_history"],
-            }
-            | prompt
-            # | prompt_trimmer # See comment above.
-            | llm_agent.bind(tools=[format_tool_to_openai_tool(tool) for tool in tools])
-            | OpenAIToolsAgentOutputParser()
-        ),
-        pplx_sonar_medium_chat=(
-            # {
-            #     "input": lambda x: x["input"],
-            #     "agent_scratchpad": lambda x: format_log_to_str(
-            #         x["intermediate_steps"]
-            #     ),
-            #     "chat_history": lambda x: x["chat_history"],
-            # }
-            RunnablePassthrough.assign(
-                agent_scratchpad=lambda x: format_log_to_str(x["intermediate_steps"]),
-            )
-            | react_prompt
-            | llm_agent.bind(stop=["\nObservation"])
-            | ReActSingleInputOutputParser()
-        ),
+        openai_gpt_4_turbo_preview=openai_agent,
+        openai_gpt_3_5_turbo_1106=openai_agent,
+        pplx_sonar_medium_chat=react_agent,
+        mistral_large=react_agent,
+        command_r_plus=react_agent,
     )
 
     from langchain_core.runnables.utils import Input, Output
@@ -683,6 +690,12 @@ llm_agent = ChatAnthropicTools(
     ),
     pplx_sonar_medium_chat=ChatPerplexity(
         model="sonar-medium-chat", temperature=0.9, verbose=True, streaming=True
+    ),
+    mistral_large=ChatMistralAI(
+        model="mistral-large-latest", temperature=0.9, verbose=True, streaming=True
+    ),
+    command_r_plus=ChatCohere(
+        model="command-r-plus", temperature=0.9, verbose=True, streaming=True
     ),
 )
 
