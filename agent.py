@@ -251,13 +251,50 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
 
     import requests
     from bs4 import BeautifulSoup
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.chrome.options import Options
 
     @tool
     def getHTMLFromURL(url: str) -> str:
         """useful when you need get the HTML of URL. The input to this should be URL."""
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, "html.parser")
-        return soup.prettify()
+        # response = requests.get(url)
+        # soup = BeautifulSoup(response.text, "html.parser")
+        # return soup.prettify()
+        driver_path = "chromedriver-mac-x64/chromedriver"
+        service = Service(executable_path=driver_path)
+        # 创建ChromeOptions对象
+        chrome_options = Options()
+        # 添加无头模式参数
+        chrome_options.add_argument("--headless")
+        browser = webdriver.Chrome(service=service, options=chrome_options)
+
+        # 获取网页内容
+        browser.get(url=url)
+        html_content = browser.page_source
+        soup = BeautifulSoup(html_content, "html.parser")
+
+        # 找到除了<p>, <img>, <a>以外的所有标签，并删除
+        for tag in soup.find_all(True):
+            if tag.name in [
+                "link",
+                "script",
+                "style",
+                "button",
+                "input",
+                "meta",
+                "iframe",
+            ]:
+                tag.decompose()
+            if tag.attrs is not None and isinstance(tag.attrs, dict):
+                tag.attrs = {
+                    key: value for key, value in tag.attrs.items() if key != "class"
+                }
+
+        # 可选：清理空白行
+        clean_html = re.sub(r"(?m)^[\t ]+$", "", soup.prettify())
+        browser.quit()
+        return clean_html
 
     @tool
     def getContentFromURL(url: str, tag: str, class_: str) -> str:
@@ -290,162 +327,338 @@ def create_agent_executor(llm_agent: Runnable) -> AgentExecutor:
         DefiLLamaWrapYeildsAPYOfPools,
     )
 
-    tvlPotocols = DefiLLamaWrapTVLofPtotocols()
-    cvOfSc = DefiLLamaWrapCirculatingVolumeOfStablecoins()
-    tcvOfSc = DefiLLamaWrapTotalCirculatingVolumeOfStablecoins()
-    apyOfPools = DefiLLamaWrapYeildsAPYOfPools()
+    # tvlPotocols = DefiLLamaWrapTVLofPtotocols()
+    # cvOfSc = DefiLLamaWrapCirculatingVolumeOfStablecoins()
+    # tcvOfSc = DefiLLamaWrapTotalCirculatingVolumeOfStablecoins()
+    # apyOfPools = DefiLLamaWrapYeildsAPYOfPools()
+
+    # @tool
+    # def getTVLOfDefiProject(question: str) -> str:
+    #     """ "useful when you need get TVL and info of defi project. The input to this should be a complete question about tvl."""
+    #     # agent = tvlPotocols.create_agent()
+    #     agent = tvlPotocols.create_agent().with_config(
+    #         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+    #     )
+    #     excutor = AgentExecutor(
+    #         agent=agent,
+    #         tools=tvlPotocols.tools,
+    #         verbose=True,
+    #     )
+    #     result = excutor.invoke({"input": question})
+    #     return result["output"]
+
+    # @tool
+    # def fetchTVLOfDefiProject(question: str) -> str:
+    #     """ "useful when you need fetch TVL and info of defi project."""
+    #     tvlPotocols.fetch()
+    #     return getTVLOfDefiProject(question)
+
+    # @tool
+    # def getCirculatingVolumeOfStablecoin(question: str) -> str:
+    #     """ "useful when you need get circulating volume of stablecoin. The input to this should be a complete question about circulating volume."""
+    #     # agent = tvlPotocols.create_agent()
+    #     agent = cvOfSc.create_agent().with_config(
+    #         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+    #     )
+    #     excutor = AgentExecutor(
+    #         agent=agent,
+    #         tools=cvOfSc.tools,
+    #         verbose=True,
+    #     )
+    #     result = excutor.invoke({"input": question})
+    #     return result["output"]
+
+    # @tool
+    # def fetchCirculatingVolumeOfStablecoin(question: str) -> str:
+    #     """ "useful when you need fetch Circulating Volume of stablecoin."""
+    #     cvOfSc.fetch()
+    #     return getCirculatingVolumeOfStablecoin(question)
+
+    # @tool
+    # def getTotalCirculatingVolumeOfStablecoin(question: str) -> str:
+    #     """ "useful when you need get the volume of fait currency pegged to the chain. The input to this should be a complete question about volume of fait currency pegged."""
+    #     # agent = tvlPotocols.create_agent()
+    #     agent = tcvOfSc.create_agent().with_config(
+    #         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+    #     )
+    #     excutor = AgentExecutor(
+    #         agent=agent,
+    #         tools=tcvOfSc.tools,
+    #         verbose=True,
+    #     )
+    #     result = excutor.invoke({"input": question})
+    #     return result["output"]
+
+    # @tool
+    # def fetchTotalCirculatingVolumeOfStablecoin(question: str) -> str:
+    #     """ "useful when you need fetch the volume of fait currency pegged to."""
+    #     tcvOfSc.fetch()
+    #     return getTotalCirculatingVolumeOfStablecoin(question)
+
+    # @tool
+    # def getYieldsAndAPYOfPools(question: str) -> str:
+    #     """ "useful when you need get yields or APY of defi pools. The input to this should be a complete question about yields or APY."""
+    #     # agent = tvlPotocols.create_agent()
+    #     agent = apyOfPools.create_agent().with_config(
+    #         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+    #     )
+    #     excutor = AgentExecutor(
+    #         agent=agent,
+    #         tools=apyOfPools.tools,
+    #         verbose=True,
+    #     )
+    #     result = excutor.invoke({"input": question})
+    #     return result["output"]
+
+    # @tool
+    # def fetchYieldsAndAPYOfPools(question: str) -> str:
+    #     """useful when you need fetch yields or APY of defi pools."""
+    #     apyOfPools.fetch()
+    #     return getYieldsAndAPYOfPools(question)
+
+    # from defillama_wrapper import DefiLLamaWrapInfoOfBridges
+
+    # infoOfBridges = DefiLLamaWrapInfoOfBridges()
+
+    # @tool
+    # def getInfoOfBridges(question: str) -> str:
+    #     """useful when you need get info of a cross-chain bridges. The input to this should be a complete question about cross-chain bridge."""
+    #     # agent = tvlPotocols.create_agent()
+    #     agent = infoOfBridges.create_agent().with_config(
+    #         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+    #     )
+    #     excutor = AgentExecutor(
+    #         agent=agent,
+    #         tools=infoOfBridges.tools,
+    #         verbose=True,
+    #     )
+    #     result = excutor.invoke({"input": question})
+    #     return result["output"]
+
+    # @tool
+    # def fetchInfoOfBridges(question: str) -> str:
+    #     """useful when you need fetch info of a cross-chain bridges."""
+    #     infoOfBridges.fetch()
+    #     return getInfoOfBridges(question)
+
+    # from defillama_wrapper import DefiLLamaWrapVolumeOfDex
+
+    # vOfDex = DefiLLamaWrapVolumeOfDex()
+
+    # @tool
+    # def getVolumeOfDex(question: str) -> str:
+    #     """useful when you need get volume of a Dex. The input to this should be a complete question about dex's volume."""
+    #     # agent = tvlPotocols.create_agent()
+    #     agent = vOfDex.create_agent().with_config(
+    #         {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+    #     )
+    #     excutor = AgentExecutor(
+    #         agent=agent,
+    #         tools=vOfDex.tools,
+    #         verbose=True,
+    #     )
+    #     result = excutor.invoke({"input": question})
+    #     return result["output"]
+
+    # @tool
+    # def fetchVolumeOfDex(question: str) -> str:
+    #     """useful when you need fetch volume of a dex."""
+    #     vOfDex.fetch()
+    #     return getVolumeOfDex(question)
+
+    def fetch_html(url: str) -> str:
+        # 创建一个HTTP会话
+        with requests.Session() as session:
+            # 同步获取响应
+            response = session.get(url)
+            # 确保响应状态为200
+            if response.status_code == 200:
+                # 读取响应的文本内容
+                html = response.text
+                return html
+            else:
+                raise Exception(
+                    f"Error fetching '{url}': Status {response.status_code}"
+                )
+
+    def getHTMLFromURL(url: str) -> str:
+        html_content = fetch_html(url=url)
+        soup = BeautifulSoup(html_content, "html.parser")
+
+        # 找到除了<p>, <img>, <a>以外的所有标签，并删除
+        for tag in soup.find_all(True):
+            if tag.name in [
+                "link",
+                "script",
+                "style",
+                "button",
+                "input",
+                "meta",
+                "iframe",
+                "title",
+            ]:
+                tag.decompose()
+            if tag.attrs is not None and isinstance(tag.attrs, dict):
+                tag.attrs = {
+                    key: value for key, value in tag.attrs.items() if key != "class"
+                }
+
+        # 可选：清理空白行
+        clean_html = re.sub(r"(?m)^[\t ]+$", "", soup.prettify())
+        return clean_html
+
+    from urllib.parse import urlparse
 
     @tool
-    def getTVLOfDefiProject(question: str) -> str:
-        """ "useful when you need get TVL and info of defi project. The input to this should be a complete question about tvl."""
-        # agent = tvlPotocols.create_agent()
-        agent = tvlPotocols.create_agent().with_config(
-            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-        )
-        excutor = AgentExecutor(
-            agent=agent,
-            tools=tvlPotocols.tools,
+    def getContentOfURL(question: str) -> str:
+        """Useful when you need to know as much as possible about the content of the page that the URL points to. The input must be a complete question about getting as much of the content of the page pointed to by the URL as possible, and must contain the URL."""
+        # 定义URL的正则表达式
+        url_regex = r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+
+        # 在字符串中搜索URL
+        found_urls = re.findall(url_regex, question)
+
+        # 检查是否找到了URL
+        if found_urls:
+            # 验证找到的第一个URL是否有效
+            parsed_url = urlparse(found_urls[0])
+            if bool(parsed_url.scheme) and bool(parsed_url.netloc):
+                url = found_urls[0]
+            else:
+                raise ValueError("找到的URL无效")
+        else:
+            # 如果没有找到URL，抛出异常
+            raise ValueError("字符串中不包含URL")
+        try:
+            html_content = getHTMLFromURL(url)
+        except Exception as e:
+            return f"When get the content of the link `{url}`, got an exception:{e}"
+
+        llm = ChatOpenAI(
+            temperature=0.9,
+            model="gpt-4-turbo-preview",
             verbose=True,
+            streaming=True,
         )
-        result = excutor.invoke({"input": question})
-        return result["output"]
+        prompt_template = """Because you are required to provide as much information to users as possible and answer users' questions. So, if you cannot get as much information as possible from the extracted HTML content to answer the user's question, return NEED_SEARCH. Otherwise, please return your answer.
 
-    @tool
-    def fetchTVLOfDefiProject(question: str) -> str:
-        """ "useful when you need fetch TVL and info of defi project."""
-        tvlPotocols.fetch()
-        return getTVLOfDefiProject(question)
+URL:{url}
+    
+```html
+{main_html}
+```
 
-    @tool
-    def getCirculatingVolumeOfStablecoin(question: str) -> str:
-        """ "useful when you need get circulating volume of stablecoin. The input to this should be a complete question about circulating volume."""
-        # agent = tvlPotocols.create_agent()
-        agent = cvOfSc.create_agent().with_config(
-            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
+Question:{question}
+
+Answer:
+
+"""
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                HumanMessagePromptTemplate.from_template(prompt_template),
+                # MessagesPlaceholder(variable_name="agent_scratchpad"),
+            ]
         )
-        excutor = AgentExecutor(
-            agent=agent,
-            tools=cvOfSc.tools,
-            verbose=True,
+        extract_chain = prompt | llm | StrOutputParser()
+        answer = extract_chain.invoke(
+            {"url": url, "main_html": html_content, "question": question}
         )
-        result = excutor.invoke({"input": question})
-        return result["output"]
+        if answer == "NEED_SEARCH":
+            # 使用urlparse()函数解析URL
+            # parsed_url = urlparse(url)
 
-    @tool
-    def fetchCirculatingVolumeOfStablecoin(question: str) -> str:
-        """ "useful when you need fetch Circulating Volume of stablecoin."""
-        cvOfSc.fetch()
-        return getCirculatingVolumeOfStablecoin(question)
+            # 获取域名
+            # domain_end_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+            search = GoogleSerperAPIWrapper()
+            search_result = search.results(url)
+            prompt_template = """URL:{url}
 
-    @tool
-    def getTotalCirculatingVolumeOfStablecoin(question: str) -> str:
-        """ "useful when you need get the volume of fait currency pegged to the chain. The input to this should be a complete question about volume of fait currency pegged."""
-        # agent = tvlPotocols.create_agent()
-        agent = tcvOfSc.create_agent().with_config(
-            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-        )
-        excutor = AgentExecutor(
-            agent=agent,
-            tools=tcvOfSc.tools,
-            verbose=True,
-        )
-        result = excutor.invoke({"input": question})
-        return result["output"]
+Data:
+```json
+{organic}
+```
+Since the content at that "{url}" could not be extracted, the "{url}" was searched using Google search. "Data" is the result of a Google search for "{url}". Please select a result that is highly relevant to the URL "{url}", but the `link` cannot be equal to "{url}", and return `link` of the result. Just return `link` without any hints.
+"""
+            prompt = ChatPromptTemplate.from_messages(
+                [
+                    HumanMessagePromptTemplate.from_template(prompt_template),
+                ]
+            )
+            get_link_chain = prompt | llm | StrOutputParser()
+            link = get_link_chain.invoke(
+                {
+                    "url": url,
+                    "organic": [
+                        item for item in search_result["organic"] if item["link"] != url
+                    ],
+                }
+            )
+            try:
+                main_html = getHTMLFromURL(link)
+            except Exception as e:
+                return f"When get the content of a related link `{link}`, got an exception:{e}"
+            prompt_template = """Since you can't get as much information from extracting the content of the "{url}" link to answer the user's question. So you can answer as many users' questions as possible through the content of a related link, and provide some other related links for users' reference.
 
-    @tool
-    def fetchTotalCirculatingVolumeOfStablecoin(question: str) -> str:
-        """ "useful when you need fetch the volume of fait currency pegged to."""
-        tcvOfSc.fetch()
-        return getTotalCirculatingVolumeOfStablecoin(question)
+URL:{url}
 
-    @tool
-    def getYieldsAndAPYOfPools(question: str) -> str:
-        """ "useful when you need get yields or APY of defi pools. The input to this should be a complete question about yields or APY."""
-        # agent = tvlPotocols.create_agent()
-        agent = apyOfPools.create_agent().with_config(
-            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-        )
-        excutor = AgentExecutor(
-            agent=agent,
-            tools=apyOfPools.tools,
-            verbose=True,
-        )
-        result = excutor.invoke({"input": question})
-        return result["output"]
+Related Link:{related_link}
 
-    @tool
-    def fetchYieldsAndAPYOfPools(question: str) -> str:
-        """useful when you need fetch yields or APY of defi pools."""
-        apyOfPools.fetch()
-        return getYieldsAndAPYOfPools(question)
+HTML of Related Link:
+```html
+{main_html}
+```
 
-    from defillama_wrapper import DefiLLamaWrapInfoOfBridges
+Other Related Links: 
+```json
+{other_related_links}
+```
 
-    infoOfBridges = DefiLLamaWrapInfoOfBridges()
+Question:{question}
 
-    @tool
-    def getInfoOfBridges(question: str) -> str:
-        """useful when you need get info of a cross-chain bridges. The input to this should be a complete question about cross-chain bridge."""
-        # agent = tvlPotocols.create_agent()
-        agent = infoOfBridges.create_agent().with_config(
-            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-        )
-        excutor = AgentExecutor(
-            agent=agent,
-            tools=infoOfBridges.tools,
-            verbose=True,
-        )
-        result = excutor.invoke({"input": question})
-        return result["output"]
+Answer:
 
-    @tool
-    def fetchInfoOfBridges(question: str) -> str:
-        """useful when you need fetch info of a cross-chain bridges."""
-        infoOfBridges.fetch()
-        return getInfoOfBridges(question)
-
-    from defillama_wrapper import DefiLLamaWrapVolumeOfDex
-
-    vOfDex = DefiLLamaWrapVolumeOfDex()
-
-    @tool
-    def getVolumeOfDex(question: str) -> str:
-        """useful when you need get volume of a Dex. The input to this should be a complete question about dex's volume."""
-        # agent = tvlPotocols.create_agent()
-        agent = vOfDex.create_agent().with_config(
-            {"configurable": {"llm": "openai_gpt_4_turbo_preview"}}
-        )
-        excutor = AgentExecutor(
-            agent=agent,
-            tools=vOfDex.tools,
-            verbose=True,
-        )
-        result = excutor.invoke({"input": question})
-        return result["output"]
-
-    @tool
-    def fetchVolumeOfDex(question: str) -> str:
-        """useful when you need fetch volume of a dex."""
-        vOfDex.fetch()
-        return getVolumeOfDex(question)
+"""
+            prompt = ChatPromptTemplate.from_messages(
+                [
+                    # SystemMessagePromptTemplate.from_template(
+                    #     "If using the search tool, prefix the string parameter with [S]."
+                    # ),
+                    HumanMessagePromptTemplate.from_template(prompt_template),
+                    # MessagesPlaceholder(variable_name="agent_scratchpad"),
+                ]
+            )
+            extract_chain = prompt | llm | StrOutputParser()
+            answer = extract_chain.invoke(
+                {
+                    "url": url,
+                    "main_html": main_html,
+                    "related_link": link,
+                    "other_related_links": [
+                        item for item in search_result["organic"] if item["link"] != url
+                    ],
+                    "question": question,
+                }
+            )
+        return answer
 
     tools = [
         search,
         # getHTMLFromURL,
         # getHTMLFromURLs,
-        getContentFromURL,
-        getTVLOfDefiProject,
-        fetchTVLOfDefiProject,
-        getCirculatingVolumeOfStablecoin,
-        fetchCirculatingVolumeOfStablecoin,
-        getTotalCirculatingVolumeOfStablecoin,
-        fetchTotalCirculatingVolumeOfStablecoin,
-        getYieldsAndAPYOfPools,
-        fetchYieldsAndAPYOfPools,
-        getInfoOfBridges,
-        fetchInfoOfBridges,
-        getVolumeOfDex,
-        fetchVolumeOfDex,
+        # getContentFromURL,
+        getContentOfURL,
+        # getTVLOfDefiProject,
+        # fetchTVLOfDefiProject,
+        # getCirculatingVolumeOfStablecoin,
+        # fetchCirculatingVolumeOfStablecoin,
+        # getTotalCirculatingVolumeOfStablecoin,
+        # fetchTotalCirculatingVolumeOfStablecoin,
+        # getYieldsAndAPYOfPools,
+        # fetchYieldsAndAPYOfPools,
+        # getInfoOfBridges,
+        # fetchInfoOfBridges,
+        # getVolumeOfDex,
+        # fetchVolumeOfDex,
         Tool(
             name="CryptocurrencyLatestQuote",
             func=cmc_last_quote_api.run,
