@@ -32,11 +32,11 @@ import { AIMessage, FunctionMessage, AIMessageChunk, FunctionMessageChunk } from
 import { forEach } from "lodash";
 
 const init_msg = "Please input your question."
-const typing_msg="Typing answer...."
-const processing_msg="Processing..."
-const processing_end_msg="Processing end."
-const synthesizing_question_msg="Synthesizing question..."
-const invoking_tool_msg="Invoking tool..."
+const typing_msg = "Typing answer...."
+const processing_msg = "Processing..."
+const processing_end_msg = "Processing end."
+const synthesizing_question_msg = "Synthesizing question..."
+const invoking_tool_msg = "Invoking tool..."
 function showProcessingTip(processingTip: string) {
 	if (processingTip != "" && processingTip != init_msg) {
 		return <Box className="whitespace-pre-wrap" color="green" padding={".2em"}>
@@ -137,11 +137,13 @@ export function ChatWindow(props: { conversationId: string }) {
 				//   includeNames: [sourceStepName],
 				// },
 			);
+			var chunk_buff = "";
+			var buff_size = 100;
+			var n = 0;
 			for await (const chunk of streams) {
 				var _chunk: object
 				if (typeof chunk === "object") {
 					_chunk = chunk as object;
-					console.log(_chunk);
 					if ("run_id" in _chunk) {
 						runId = _chunk.run_id as string;
 					}
@@ -184,35 +186,64 @@ export function ChatWindow(props: { conversationId: string }) {
 								var data = _chunk.data as object
 								if ("chunk" in data && data.chunk instanceof AIMessageChunk) {
 									var aichunk = data.chunk as AIMessageChunk;
+									// 	console.log(_chunk)
+									// if (n < buff_size - 1) {
+									// 	chunk_buff += aichunk.content.toString();
+									// 	var final_answer_index = chunk_buff.indexOf("Final Answer:");
+									// 	var thought_index = chunk_buff.indexOf("Thought:");
+									// 	var action_index = chunk_buff.indexOf("Action:");
+									// 	var action_input_index = chunk_buff.indexOf("Action Input:");
+									// 	var observation_index = chunk_buff.indexOf("Observation")
+									// 	if (final_answer_index != -1) {
+									// 		accumulatedMessage = chunk_buff.substring(final_answer_index + "Final Answer:".length);
+									// 	} else {
+									// 		if (thought_index == -1 && action_index == -1 && action_input_index == -1 && observation_index == -1)
+									// 			accumulatedMessage = chunk_buff;
+									// 	}
+									// 	n++;
+									// } else if (n == buff_size - 1) {
+									// 	n++;
+									// 	chunk_buff += aichunk.content.toString();
+									// 	var final_answer_index = chunk_buff.indexOf("Final Answer:");
+									// 	if (final_answer_index != -1) {
+									// 		accumulatedMessage += chunk_buff.substring(final_answer_index + "Final Answer:".length);
+									// 	} else {
+									// 		accumulatedMessage = chunk_buff + aichunk.content.toString();
+									// 	}
+									// } else {
+									// 	accumulatedMessage += aichunk.content.toString();
+									// }
 									accumulatedMessage += aichunk.content.toString();
 								}
 							}
 							var parsedResult = marked.parse(accumulatedMessage);
-							setMessages((prevMessages) => {
-								let newMessages = [...prevMessages];
-								if (
-									messageIndex === null ||
-									newMessages[messageIndex] === undefined
-								) {
-									messageIndex = newMessages.length;
-									newMessages.push({
-										id: Math.random().toString(),
-										content: parsedResult.trim(),
-										runId: runId,
-										sources: sources,
-										role: "assistant",
-									});
-								} else if (newMessages[messageIndex] !== undefined) {
-									newMessages[messageIndex].content = parsedResult.trim();
-									newMessages[messageIndex].runId = runId;
-									// newMessages[messageIndex].sources = sources;
-								}
-								return newMessages;
-							});
+							if (parsedResult != undefined) {
+								setMessages((prevMessages) => {
+									let newMessages = [...prevMessages];
+									if (
+										messageIndex === null ||
+										newMessages[messageIndex] === undefined
+									) {
+										messageIndex = newMessages.length;
+										newMessages.push({
+											id: Math.random().toString(),
+											content: parsedResult.trim(),
+											runId: runId,
+											sources: sources,
+											role: "assistant",
+										});
+									} else if (newMessages[messageIndex] !== undefined) {
+										newMessages[messageIndex].content = parsedResult.trim();
+										newMessages[messageIndex].runId = runId;
+										// newMessages[messageIndex].sources = sources;
+									}
+									return newMessages;
+								});
+							}
 							break
 						case "on_tool_start":
 							setProcessingTip(prevVal => {
-								return invoking_tool_msg 
+								return invoking_tool_msg
 							})
 							break
 						case "on_tool_end":
@@ -250,7 +281,7 @@ export function ChatWindow(props: { conversationId: string }) {
 									messageIndex = newMessages.length;
 									newMessages.push({
 										id: Math.random().toString(),
-										content: parsedResult.trim(),
+										content: parsedResult ? parsedResult.trim() : "",
 										runId: runId,
 										sources: sources,
 										role: "assistant",

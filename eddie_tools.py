@@ -76,6 +76,7 @@ def getCleanHTML(url: str) -> str:
             "meta",
             "iframe",
             "title",
+            "svg",
         ]:
             tag.decompose()
         if tag.attrs is not None and isinstance(tag.attrs, dict):

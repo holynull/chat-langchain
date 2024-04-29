@@ -40,6 +40,7 @@ from langchain_core.output_parsers import StrOutputParser
 import asyncio
 from langchain_core.utils.function_calling import convert_to_openai_function
 from langchain_community.tools.convert_to_openai import format_tool_to_openai_tool
+from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain.agents.format_scratchpad.openai_tools import (
     format_to_openai_tool_messages,
 )
@@ -594,7 +595,7 @@ You will not attempt to answer users' questions without having received function
         }
         | prompt
         # | prompt_trimmer # See comment above.
-        | llm_agent.bind(tools=[format_tool_to_openai_tool(tool) for tool in tools])
+        | llm_agent.bind(tools=[convert_to_openai_tool(tool) for tool in tools])
         | OpenAIToolsAgentOutputParser()
     )
     anthropic_agent = (
