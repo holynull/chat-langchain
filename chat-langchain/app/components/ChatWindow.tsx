@@ -186,34 +186,10 @@ export function ChatWindow(props: { conversationId: string }) {
 								var data = _chunk.data as object
 								if ("chunk" in data && data.chunk instanceof AIMessageChunk) {
 									var aichunk = data.chunk as AIMessageChunk;
-									// 	console.log(_chunk)
-									// if (n < buff_size - 1) {
-									// 	chunk_buff += aichunk.content.toString();
-									// 	var final_answer_index = chunk_buff.indexOf("Final Answer:");
-									// 	var thought_index = chunk_buff.indexOf("Thought:");
-									// 	var action_index = chunk_buff.indexOf("Action:");
-									// 	var action_input_index = chunk_buff.indexOf("Action Input:");
-									// 	var observation_index = chunk_buff.indexOf("Observation")
-									// 	if (final_answer_index != -1) {
-									// 		accumulatedMessage = chunk_buff.substring(final_answer_index + "Final Answer:".length);
-									// 	} else {
-									// 		if (thought_index == -1 && action_index == -1 && action_input_index == -1 && observation_index == -1)
-									// 			accumulatedMessage = chunk_buff;
-									// 	}
-									// 	n++;
-									// } else if (n == buff_size - 1) {
-									// 	n++;
-									// 	chunk_buff += aichunk.content.toString();
-									// 	var final_answer_index = chunk_buff.indexOf("Final Answer:");
-									// 	if (final_answer_index != -1) {
-									// 		accumulatedMessage += chunk_buff.substring(final_answer_index + "Final Answer:".length);
-									// 	} else {
-									// 		accumulatedMessage = chunk_buff + aichunk.content.toString();
-									// 	}
-									// } else {
-									// 	accumulatedMessage += aichunk.content.toString();
-									// }
-									accumulatedMessage += aichunk.content.toString();
+									if (typeof (aichunk.content) == "string")
+										accumulatedMessage += aichunk.content.toString();
+									else
+										console.log(_chunk)
 								}
 							}
 							var parsedResult = marked.parse(accumulatedMessage);
@@ -247,7 +223,7 @@ export function ChatWindow(props: { conversationId: string }) {
 							})
 							break
 						case "on_tool_end":
-							if ("name" in _chunk && _chunk.name == "search") {
+							if ("name" in _chunk && _chunk.name == "googleSerperSearch") {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
