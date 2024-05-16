@@ -6,6 +6,7 @@ from langchain.agents import tool
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import (
     ChatPromptTemplate,
+    PromptTemplate,
 )
 from langchain_core.output_parsers import StrOutputParser
 from openai_assistant_tools import GoogleSerperAPIWrapper
@@ -18,6 +19,7 @@ from typing import List
 import asyncio
 import os
 from langchain.agents import Tool
+from langchain.chains.qa_with_sources.retrieval import RetrievalQAWithSourcesChain
 
 
 llm = ChatOpenAI(
@@ -78,36 +80,468 @@ def getTokenMetadata(symbol: str) -> str:
 tradingview = TradingviewWrapper(llm=llm)
 
 
+# @tool
+# def googleSerperSearch(query: str, search_type: str = None) -> str:
+#     """Search for a webpage with Google based on the query.
+#     Set the optional search_type (str) parameter to specify whether to search news (search_type='news') or web pages (search_type=None).
+#     """
+#     if search_type == "news":
+#         newsSearch = GoogleSerperAPIWrapper(type=search_type, tbs="qdr:h")
+#         return json.dumps(
+#             [
+#                 {
+#                     "title": r["title"],
+#                     "link": r["link"] if "link" in r else "",
+#                     "snippet": r["snippet"],
+#                     "imageUrl": r["imageUrl"] if "imageUrl" in r else "",
+#                 }
+#                 for r in newsSearch.results(query=query)["news"]
+#             ]
+#         )
+#     else:
+#         searchWebpage = GoogleSerperAPIWrapper()
+#         return json.dumps(
+#             [
+#                 {
+#                     "title": r["title"],
+#                     "link": r["link"],
+#                     "snippet": r["snippet"],
+#                 }
+#                 for r in searchWebpage.results(query=query)["organic"]
+#             ]
+#         )
+
+
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain.output_parsers import (
+    PydanticToolsParser,
+    StructuredOutputParser,
+    ResponseSchema,
+    PydanticOutputParser,
+)
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import ConfigurableField
+from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
+from langchain_community.chat_models import ChatPerplexity
+from langchain_mistralai.chat_models import ChatMistralAI
+from langchain_cohere import ChatCohere
+
+
+class GoogleSearchEngineQuery(BaseModel):
+    """Search over Google Search."""
+
+    terms: str = Field(
+        ...,
+        description="The keywords to search.",
+    )
+
+    tbs: str = Field(..., description="")
+
+class GoogleSearchEngineQueryTerms(BaseModel):
+    """Search over Google Search."""
+
+    terms: str = Field(
+        ...,
+        description="The keywords to search.",
+    )
+
+
+class GoogleSearchEngineResult(BaseModel):
+    """Search over Google Search."""
+
+    # title: str
+    link: str
+    # snippet: str
+    # imageUrl: str
+
+
+llm = ChatAnthropic(
+    model="claude-3-opus-20240229",
+    # max_tokens=,
+    temperature=0.9,
+    # anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "not_provided"),
+    streaming=True,
+    verbose=True,
+).configurable_alternatives(  # This gives this field an id
+    # When configuring the end runnable, we can then use this id to configure this field
+    ConfigurableField(id="model"),
+    # default_key="openai_gpt_4_turbo_preview",
+    default_key="anthropic_claude_3_opus",
+    openai_gpt_3_5_turbo_1106=ChatOpenAI(
+        model="gpt-3.5-turbo-1106",
+        verbose=True,
+        streaming=True,
+        temperature=0.9,
+    ),
+    openai_gpt_4_turbo_preview=ChatOpenAI(
+        temperature=0.9,
+        model="gpt-4-turbo-2024-04-09",
+        verbose=True,
+        streaming=True,
+    ),
+    pplx_sonar_medium_chat=ChatPerplexity(
+        model="sonar-medium-chat", temperature=0.9, verbose=True, streaming=True
+    ),
+    mistral_large=ChatMistralAI(
+        model="mistral-large-latest", temperature=0.9, verbose=True, streaming=True
+    ),
+    command_r_plus=ChatCohere(
+        model="command-r-plus", temperature=0.9, verbose=True, streaming=True
+    ),
+)
+
+
 @tool
-def googleSerperSearch(query: str, search_type: str = None) -> str:
-    """Search for a webpage with Google based on the query.
-    Set the optional search_type (str) parameter to specify whether to search news (search_type='news') or web pages (search_type=None).
+def searchNewsToAnswer(question: str) -> str:
+    """Useful when you need answer questions use news. Input for this should be a complete question or request.
+    After executing this tool, you need to execute `summarizeRelevantContentsNews`.
     """
-    if search_type == "news":
-        newsSearch = GoogleSerperAPIWrapper(type=search_type, tbs="qdr:h")
-        return json.dumps(
-            [
-                {
-                    "title": r["title"],
-                    "link": r["link"] if "link" in r else "",
-                    "snippet": r["snippet"],
-                    "imageUrl": r["imageUrl"] if "imageUrl" in r else "",
-                }
-                for r in newsSearch.results(query=query)["news"]
-            ]
+
+    outParser = PydanticOutputParser(pydantic_object=GoogleSearchEngineQuery)
+    prompt_template_0 = """{format_instructions}
+
+Generate news search parameters `terms` and `tbs`  based on the question. 
+Search engines only search for news, so do not include words like news in terms.
+
+Use `tbs` to set the time range and do not generate time-related terms.
+`tbs` is required.
+The `tbs` parameter of the Google Search API is a very useful tool that allows you to refine and filter search results. Its primary use is to filter search results by time range, but it can also be utilized for other purposes. When using the `tbs` parameter, you can specify a time range for the search results (e.g., past 24 hours, past week, etc.), or filter results by specific dates.
+
+### Some common examples of using the `tbs` parameter:
+
+1. **Time Range**:
+   - `tbs=qdr:w`: Content from the past week.
+   - `tbs=qdr:m`: Content from the past month.
+   - `tbs=qdr:y`: Content from the past year.
+
+2. **Specific Dates**:
+   - Combine `cd_min` and `cd_max` to specify a specific date range, format as `mm/dd/yyyy`. For example, `tbs=cdr:1,cd_min:01/01/2022,cd_max:12/31/2022` would search for all content within the year 2022.
+
+3. **Custom Time Range**:
+   - You can also use specific syntax to define a custom time range. For example, `tbs=qdr:n10` to search for content from the past 10 minutes.
+
+### Points to Note When Using the `tbs` Parameter:
+
+- The `tbs` parameter is flexible but needs to be used correctly to achieve the desired filtering effect.
+- Besides time filtering, the `tbs` parameter can be used for other advanced search features, though these are generally less discussed and documented.
+- When using the Google Search API, ensure you comply with its terms of use, including but not limited to rate limits, restrictions on commercial usage, etc.
+
+Question:{question}
+"""
+    chain_0 = (
+        PromptTemplate(
+            template=prompt_template_0,
+            input_variables=["question"],
+            partial_variables={
+                "format_instructions": outParser.get_format_instructions()
+            },
         )
+        | llm
+        | outParser
+    )
+    query = chain_0.invoke(
+        {"question": question},
+        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+    )
+    print(query)
+    newsSearch = GoogleSerperAPIWrapper(type="news", tbs=query.tbs)
+    results = newsSearch.results(query=query.terms)
+    if "news" in results:
+        results = results["news"]
+    elif "organic" in results:
+        results = results["organic"]
+    elif "images" in results:
+        results = results["images"]
+    elif "places" in results:
+        results = results["places"]
     else:
-        searchWebpage = GoogleSerperAPIWrapper()
-        return json.dumps(
-            [
-                {
-                    "title": r["title"],
-                    "link": r["link"],
-                    "snippet": r["snippet"],
-                }
-                for r in searchWebpage.results(query=query)["organic"]
-            ]
+        return "There is no result return."
+    search_result = [
+        {
+            "title": r["title"],
+            "link": r["link"] if "link" in r else "",
+            # "snippet": r["snippet"],
+            "imageUrl": r["imageUrl"] if "imageUrl" in r else "",
+        }
+        for r in results
+    ]
+    result_str = json.dumps(search_result)
+    return result_str
+
+
+@tool
+def searchWebPageToAnswer(question: str) -> str:
+    """Useful when you need answer questions use web page. Input for this should be a complete question or request.
+    After executing this tool, you need to execute `summarizeRelevantContents`.
+    """
+
+    outParser = PydanticOutputParser(pydantic_object=GoogleSearchEngineQueryTerms)
+    prompt_template_0 = """{format_instructions}
+
+Generate Google search parameters `terms` based on the question. 
+Extract the keywords required for search from the question.
+
+Question:{question}
+"""
+    chain_0 = (
+        PromptTemplate(
+            template=prompt_template_0,
+            input_variables=["question"],
+            partial_variables={
+                "format_instructions": outParser.get_format_instructions()
+            },
         )
+        | llm
+        | outParser
+    )
+    query = chain_0.invoke(
+        {"question": question},
+        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+    )
+    print(query)
+    newsSearch = GoogleSerperAPIWrapper(type="search")
+    results = newsSearch.results(query=query.terms)
+    if "news" in results:
+        results = results["news"]
+    elif "organic" in results:
+        results = results["organic"]
+    elif "images" in results:
+        results = results["images"]
+    elif "places" in results:
+        results = results["places"]
+    else:
+        return "There is no result return."
+    search_result = [
+        {
+            "title": r["title"],
+            "link": r["link"] if "link" in r else "",
+            # "snippet": r["snippet"],
+            "imageUrl": r["imageUrl"] if "imageUrl" in r else "",
+        }
+        for r in results
+    ]
+    result_str = json.dumps(search_result)
+    return result_str
+
+@tool
+def searchPlacesToAnswer(question: str) -> str:
+    """Useful when you need search some places to answer question. Input for this should be a complete question."""
+
+    outParser = PydanticOutputParser(pydantic_object=GoogleSearchEngineQueryTerms)
+    prompt_template_0 = """{format_instructions}
+
+Generate Google search parameters `terms`  based on the question. 
+`terms` are search terms generated based on question.
+
+Question:{question}
+"""
+    chain_0 = (
+        PromptTemplate(
+            template=prompt_template_0,
+            input_variables=["question"],
+            partial_variables={
+                "format_instructions": outParser.get_format_instructions()
+            },
+        )
+        | llm
+        | outParser
+    )
+    query = chain_0.invoke(
+        {"question": question},
+        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+    )
+    print(query)
+    newsSearch = GoogleSerperAPIWrapper(type="places")
+    results = newsSearch.results(query=query.terms)
+    if "news" in results:
+        results = results["news"]
+    elif "organic" in results:
+        results = results["organic"]
+    elif "images" in results:
+        results = results["images"]
+    elif "places" in results:
+        results = results["places"]
+    else:
+        return "There is no result return."
+    search_result = results
+    result_str = json.dumps(search_result)
+    return result_str
+
+@tool
+def searchImagesToAnswer(question: str) -> str:
+    """Useful when you need search some images to answer question. Input for this should be a complete question."""
+
+    outParser = PydanticOutputParser(pydantic_object=GoogleSearchEngineQueryTerms)
+    prompt_template_0 = """{format_instructions}
+
+Generate Google search parameters `terms` based on the question. 
+`terms` are search terms generated based on question.
+
+Question:{question}
+"""
+    chain_0 = (
+        PromptTemplate(
+            template=prompt_template_0,
+            input_variables=["question"],
+            partial_variables={
+                "format_instructions": outParser.get_format_instructions()
+            },
+        )
+        | llm
+        | outParser
+    )
+    query = chain_0.invoke(
+        {"question": question},
+        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+    )
+    print(query)
+    newsSearch = GoogleSerperAPIWrapper(type="images")
+    results = newsSearch.results(query=query.terms)
+    if "news" in results:
+        results = results["news"]
+    elif "organic" in results:
+        results = results["organic"]
+    elif "images" in results:
+        results = results["images"]
+    elif "places" in results:
+        results = results["places"]
+    else:
+        return "There is no result return."
+    search_result = results
+    result_str = json.dumps(search_result)
+    return result_str
+
+
+from langchain_community.document_loaders import SpiderLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.document_transformers import Html2TextTransformer
+from langchain_community.vectorstores.utils import filter_complex_metadata
+from langchain_core.documents import Document
+
+h2tTransformer = Html2TextTransformer()
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1500)
+
+
+@tool
+def getDocumentFromLink(link: str) -> List[Document]:
+    """get documents from link."""
+    loader = SpiderLoader(
+        url=link,
+        mode="scrape",  # if no API key is provided it looks for SPIDER_API_KEY in env
+    )
+    try:
+        html = loader.load()
+    except Exception as e:
+        print(e)
+        return
+    html = filter_complex_metadata(html)
+    html[0].metadata["source"] = ""
+    docs_text = h2tTransformer.transform_documents(html)
+    _split = text_splitter.split_documents(docs_text)
+    splits = []
+    if len(splits) == 0:
+        splits = _split
+    else:
+        splits = splits + _split
+    return splits
+
+
+@tool
+def summarizeRelevantContents(links: List[str], question: str) -> str:
+    """
+    Get relevant content from returned by `searchWebPageToAnswer`.
+    The parameter `links` should be top 3 links returned by `searchWebPageToAnswer`.
+    The parameter `question` is the same as the input question of `searchWebPageToAnswer`.
+    """
+    prompt_template = """Extract as much relevant content about the question as possible from the context below.
+
+Question:{question}
+
+Context:
+```plaintext
+{text}
+```
+"""
+    chain = ChatPromptTemplate.from_template(prompt_template) | llm | StrOutputParser()
+    # text = "\n".join([remove_html_tags(getHTMLFromURL(link)) for link in links])
+    contents = []
+
+    # loader = AsyncChromiumLoader(links)
+    # html = loader.load()
+
+    splits = []
+    for link in links:
+        _s = getDocumentFromLink(link)
+        if _s is not None and len(splits) == 0:
+            splits = _s
+        elif _s is not None and len(splits) > 0:
+            splits = splits + _s
+        else:
+            continue
+
+    contents = chain.batch(
+        [
+            {
+                "text": _split.page_content,
+                "question": question,
+            }
+            for _split in splits
+        ],
+        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+    )
+    return (
+        "The contents of the first three search results are extracted as follows:\n"
+        + "\n".join(contents)
+    )
+
+@tool
+def summarizeRelevantContentsNews(links: List[str], question: str) -> str:
+    """
+    Get relevant content from returned by `searchNewsToAnswer`.
+    The parameter `links` should be top 3 links returned by `searchNewsToAnswer`.
+    The parameter `question` is the same as the input question of `searchNewsToAnswer`.
+    """
+    prompt_template = """Extract as much relevant content about the question as possible from the context below.
+
+Question:{question}
+
+Context:
+```plaintext
+{text}
+```
+"""
+    chain = ChatPromptTemplate.from_template(prompt_template) | llm | StrOutputParser()
+    # text = "\n".join([remove_html_tags(getHTMLFromURL(link)) for link in links])
+    contents = []
+
+    # loader = AsyncChromiumLoader(links)
+    # html = loader.load()
+
+    splits = []
+    for link in links:
+        _s = getDocumentFromLink(link)
+        if _s is not None and len(splits) == 0:
+            splits = _s
+        elif _s is not None and len(splits) > 0:
+            splits = splits + _s
+        else:
+            continue
+
+    contents = chain.batch(
+        [
+            {
+                "text": _split.page_content,
+                "question": question,
+            }
+            for _split in splits
+        ],
+        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+    )
+    return (
+        "The contents of the first three search results are extracted as follows:\n"
+        + "\n".join(contents)
+    )
 
 
 def remove_html_tags(text):
@@ -115,6 +549,8 @@ def remove_html_tags(text):
     clean = re.compile("<.*?>")
     text = re.sub(clean, "", text)  # Remove HTML tags
     text = unescape(text)  # Unescape HTML entities
+    text = re.sub(r"(?m)^[\t ]+$", "", text)
+    text = re.sub(r"\n+", "", text)
     return text
 
 
@@ -194,6 +630,13 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 
+driver_path = "chromedriver-mac-x64/chromedriver"
+service = Service(executable_path=driver_path)
+# 创建ChromeOptions对象
+chrome_options = Options()
+# 添加无头模式参数
+chrome_options.add_argument("--headless")
+
 
 @tool
 def getHTMLFromURL(url: str) -> str:
@@ -201,22 +644,23 @@ def getHTMLFromURL(url: str) -> str:
     # response = requests.get(url)
     # soup = BeautifulSoup(response.text, "html.parser")
     # return soup.prettify()
-    driver_path = "chromedriver-mac-x64/chromedriver"
-    service = Service(executable_path=driver_path)
+    # driver_path = "chromedriver-mac-x64/chromedriver"
+    # service = Service(executable_path=driver_path)
     # 创建ChromeOptions对象
-    chrome_options = Options()
+    # chrome_options = Options()
     # 添加无头模式参数
-    chrome_options.add_argument("--headless")
+    # chrome_options.add_argument("--headless")
     browser = webdriver.Chrome(service=service, options=chrome_options)
 
     # 获取网页内容
     browser.get(url=url)
     html_content = browser.page_source
     soup = BeautifulSoup(html_content, "html.parser")
-
-    # 找到除了<p>, <img>, <a>以外的所有标签，并删除
-    for tag in soup.find_all(True):
-        if tag.name in [
+    # if response.status_code == 200:
+    # soup = BeautifulSoup(response.text, "html.parser")
+    body = soup.find("body")
+    for tag in body.find_all(
+        [
             "link",
             "script",
             "style",
@@ -224,17 +668,25 @@ def getHTMLFromURL(url: str) -> str:
             "input",
             "meta",
             "iframe",
-        ]:
-            tag.decompose()
-        if tag.attrs is not None and isinstance(tag.attrs, dict):
-            tag.attrs = {
-                key: value for key, value in tag.attrs.items() if key != "class"
-            }
+            "img",
+            "noscript",
+            "svg",
+        ]
+    ):
+        tag.decompose()
+    for tag in body.findAll(True):
+        tag.attrs = {
+            key: value
+            for key, value in tag.attrs.items()
+            if key not in ["class", "style"]
+        }
 
     # 可选：清理空白行
-    clean_html = re.sub(r"(?m)^[\t ]+$", "", soup.prettify())
+    clean_html = re.sub(r"(?m)^[\t ]+$", "", str(body))
     browser.quit()
     return clean_html
+    # else:
+    #     return f"Failed to retrieve the webpage from {url}. status: {response.status_code}"
 
 
 @tool
@@ -410,7 +862,14 @@ from defillama_wrapper import (
 #     return getVolumeOfDex(question)
 
 tools = [
-    googleSerperSearch,
+    searchWebPageToAnswer,
+    searchNewsToAnswer,
+    searchPlacesToAnswer,
+    searchImagesToAnswer,
+    summarizeRelevantContents,
+    summarizeRelevantContentsNews,
+    # summarizeRelevantContents_2,
+    # summarizeRelevantContents_3,
     # getHTMLFromURL,
     # getHTMLFromURLs,
     # getContentFromURL,

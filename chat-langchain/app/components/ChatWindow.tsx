@@ -223,19 +223,19 @@ export function ChatWindow(props: { conversationId: string }) {
 							})
 							break
 						case "on_tool_end":
-							if ("name" in _chunk && _chunk.name == "googleSerperSearch") {
-								if ("data" in _chunk) {
-									var data = _chunk.data as object;
-									if ("output" in data) {
-										var output = eval('(' + data.output + ')');
-										sources = output.map((doc: Record<string, any>) => ({
-											url: doc.link,
-											title: doc.title,
-										}));
-									}
-								}
-							}
-							if ("name" in _chunk && _chunk.name == "searchForGoogleNews") {
+							// if ("name" in _chunk && _chunk.name == "googleSerperSearch") {
+							// 	if ("data" in _chunk) {
+							// 		var data = _chunk.data as object;
+							// 		if ("output" in data) {
+							// 			var output = eval('(' + data.output + ')');
+							// 			sources = output.map((doc: Record<string, any>) => ({
+							// 				url: doc.link,
+							// 				title: doc.title,
+							// 			}));
+							// 		}
+							// 	}
+							// }
+							if ("name" in _chunk && (_chunk.name == "searchWebPageToAnswer" || _chunk.name == "searchNewsToAnswer")) {
 								if ("data" in _chunk) {
 									var data = _chunk.data as object;
 									if ("output" in data) {
