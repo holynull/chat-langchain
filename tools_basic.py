@@ -138,6 +138,7 @@ class GoogleSearchEngineQuery(BaseModel):
 
     tbs: str = Field(..., description="")
 
+
 class GoogleSearchEngineQueryTerms(BaseModel):
     """Search over Google Search."""
 
@@ -324,6 +325,7 @@ Question:{question}
     result_str = json.dumps(search_result)
     return result_str
 
+
 @tool
 def searchPlacesToAnswer(question: str) -> str:
     """Useful when you need search some places to answer question. Input for this should be a complete question."""
@@ -367,6 +369,7 @@ Question:{question}
     search_result = results
     result_str = json.dumps(search_result)
     return result_str
+
 
 @tool
 def searchImagesToAnswer(question: str) -> str:
@@ -420,11 +423,12 @@ from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_core.documents import Document
 
 h2tTransformer = Html2TextTransformer()
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1500)
 
 
-@tool
-def getDocumentFromLink(link: str) -> List[Document]:
+# @tool
+def getDocumentFromLink(
+    link: str, chunk_size: int, chunk_overlap: int
+) -> List[Document]:
     """get documents from link."""
     loader = SpiderLoader(
         url=link,
@@ -434,10 +438,14 @@ def getDocumentFromLink(link: str) -> List[Document]:
         html = loader.load()
     except Exception as e:
         print(e)
-        return
+        clean_html = getHTMLFromURL(link)
+        html = [Document(clean_html)]
     html = filter_complex_metadata(html)
     html[0].metadata["source"] = ""
     docs_text = h2tTransformer.transform_documents(html)
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size, chunk_overlap=chunk_overlap
+    )
     _split = text_splitter.split_documents(docs_text)
     splits = []
     if len(splits) == 0:
@@ -472,7 +480,7 @@ Context:
 
     splits = []
     for link in links:
-        _s = getDocumentFromLink(link)
+        _s = getDocumentFromLink(link, chunk_size=10000, chunk_overlap=1500)
         if _s is not None and len(splits) == 0:
             splits = _s
         elif _s is not None and len(splits) > 0:
@@ -494,6 +502,51 @@ Context:
         "The contents of the first three search results are extracted as follows:\n"
         + "\n".join(contents)
     )
+
+
+@tool
+def answerQuestionFromLinks(link: str, question: str) -> str:
+    """
+    Useful when the question that needs to be answered points to a specific link.
+    The parameter `links` should be complete url links.
+    The parameter `question` should be a complete question about `links`.
+    """
+    prompt_template = """Context is the content fragment extracted from the link.  Please organize the context clearly. And answer questions based on the collation results.
+
+The format of the returned result is as follows:
+
+```
+Final Fragment: xxxxxx
+
+Answer: xxxxxx
+```
+
+Link:{link}
+
+Question: {question}
+
+Context:
+```plaintext
+{text}
+```
+"""
+    chain = ChatPromptTemplate.from_template(prompt_template) | llm | StrOutputParser()
+    splits = getDocumentFromLink(link, chunk_size=1000, chunk_overlap=200)
+    contents = chain.batch(
+        [
+            {
+                "link": link,
+                "text": _split.page_content,
+                "question": question,
+            }
+            for _split in splits
+        ],
+        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+    )
+    return "The content snippet obtained from the link is as follows:\n" + (
+        "\n" + "#" * 70 + "\n"
+    ).join(contents)
+
 
 @tool
 def summarizeRelevantContentsNews(links: List[str], question: str) -> str:
@@ -520,7 +573,7 @@ Context:
 
     splits = []
     for link in links:
-        _s = getDocumentFromLink(link)
+        _s = getDocumentFromLink(link, chunk_size=10000, chunk_overlap=1500)
         if _s is not None and len(splits) == 0:
             splits = _s
         elif _s is not None and len(splits) > 0:
@@ -868,6 +921,7 @@ tools = [
     searchImagesToAnswer,
     summarizeRelevantContents,
     summarizeRelevantContentsNews,
+    answerQuestionFromLinks,
     # summarizeRelevantContents_2,
     # summarizeRelevantContents_3,
     # getHTMLFromURL,
