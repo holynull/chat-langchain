@@ -20,6 +20,7 @@ import asyncio
 import os
 from langchain.agents import Tool
 from langchain.chains.qa_with_sources.retrieval import RetrievalQAWithSourcesChain
+from rebyte_langchain.rebyte_langchain import RebyteEndpoint
 
 
 llm = ChatOpenAI(
@@ -157,6 +158,16 @@ class GoogleSearchEngineResult(BaseModel):
     # imageUrl: str
 
 
+from pathlib import Path
+import sys
+from dotenv import load_dotenv
+
+if getattr(sys, "frozen", False):
+    script_location = Path(sys.executable).parent.resolve()
+else:
+    script_location = Path(__file__).parent.resolve()
+load_dotenv(dotenv_path=script_location / ".env")
+
 llm = ChatAnthropic(
     model="claude-3-opus-20240229",
     # max_tokens=,
@@ -189,6 +200,13 @@ llm = ChatAnthropic(
     ),
     command_r_plus=ChatCohere(
         model="command-r-plus", temperature=0.9, verbose=True, streaming=True
+    ),
+    rebyte_agent=RebyteEndpoint(
+        rebyte_api_key=os.getenv("REBYTE_API_KEY"),
+        project_id=os.getenv("REBYTE_PROJECT_ID"),
+        agent_id=os.getenv("REBYTE_AGENT_ID"),
+        # session_id="oolLdHU2Rro-Y-HSMtD1z",
+        # streaming=True,
     ),
 )
 
@@ -496,7 +514,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+        config={"configurable": {"model": "rebyte_agent"}},
     )
     return (
         "The contents of the first three search results are extracted as follows:\n"
@@ -541,7 +559,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+        config={"configurable": {"model": "rebyte_agent"}},
     )
     return "The content snippet obtained from the link is as follows:\n" + (
         "\n" + "#" * 70 + "\n"
@@ -589,7 +607,7 @@ Context:
             }
             for _split in splits
         ],
-        config={"configurable": {"model": "openai_gpt_3_5_turbo_1106"}},
+        config={"configurable": {"model": "rebyte_agent"}},
     )
     return (
         "The contents of the first three search results are extracted as follows:\n"
