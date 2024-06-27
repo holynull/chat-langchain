@@ -21,6 +21,31 @@ import os
 from langchain.agents import Tool
 from langchain.chains.qa_with_sources.retrieval import RetrievalQAWithSourcesChain
 from rebyte_langchain.rebyte_langchain import RebyteEndpoint
+from langchain_core.pydantic_v1 import BaseModel, Field
+from langchain.output_parsers import (
+    PydanticToolsParser,
+    StructuredOutputParser,
+    ResponseSchema,
+    PydanticOutputParser,
+)
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import ConfigurableField
+from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
+from langchain_community.chat_models import ChatPerplexity
+from langchain_mistralai.chat_models import ChatMistralAI
+from langchain_cohere import ChatCohere
+from pathlib import Path
+import sys
+
+from langchain.agents import load_tools
+from dotenv import load_dotenv
+
+if getattr(sys, "frozen", False):
+    script_location = Path(sys.executable).parent.resolve()
+else:
+    script_location = Path(__file__).parent.resolve()
+load_dotenv(dotenv_path=script_location / ".env")
 
 
 llm = ChatOpenAI(
@@ -113,22 +138,6 @@ tradingview = TradingviewWrapper(llm=llm)
 #         )
 
 
-from langchain_core.pydantic_v1 import BaseModel, Field
-from langchain.output_parsers import (
-    PydanticToolsParser,
-    StructuredOutputParser,
-    ResponseSchema,
-    PydanticOutputParser,
-)
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import ConfigurableField
-from langchain_anthropic import ChatAnthropic
-from langchain_openai import ChatOpenAI
-from langchain_community.chat_models import ChatPerplexity
-from langchain_mistralai.chat_models import ChatMistralAI
-from langchain_cohere import ChatCohere
-
-
 class GoogleSearchEngineQuery(BaseModel):
     """Search over Google Search."""
 
@@ -157,16 +166,6 @@ class GoogleSearchEngineResult(BaseModel):
     # snippet: str
     # imageUrl: str
 
-
-from pathlib import Path
-import sys
-from dotenv import load_dotenv
-
-if getattr(sys, "frozen", False):
-    script_location = Path(sys.executable).parent.resolve()
-else:
-    script_location = Path(__file__).parent.resolve()
-load_dotenv(dotenv_path=script_location / ".env")
 
 llm = ChatAnthropic(
     model="claude-3-opus-20240229",
@@ -932,7 +931,9 @@ from defillama_wrapper import (
 #     vOfDex.fetch()
 #     return getVolumeOfDex(question)
 
-tools = [
+
+tools_google = load_tools(["google-scholar", "google-finance"], llm=llm)
+tools = tools_google + [
     searchWebPageToAnswer,
     searchNewsToAnswer,
     searchPlacesToAnswer,

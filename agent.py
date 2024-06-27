@@ -185,6 +185,12 @@ llm_agent = ChatAnthropic(
         verbose=True,
         streaming=True,
     ),
+	openai_gpt_4o=ChatOpenAI(
+        temperature=0.9,
+        model="gpt-4o",
+        verbose=True,
+        streaming=True,
+    ),
     pplx_sonar_medium_chat=ChatPerplexity(
         model="sonar-medium-chat", temperature=0.9, verbose=True, streaming=True
     ),
