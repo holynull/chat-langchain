@@ -88,6 +88,8 @@ def get_funds_transfer_status_in_transaction_data(tx_hash: str) -> any:
     result = {}
 
     INFURA_API_KEY = os.getenv("INFURA_API_KEY")
+    if not INFURA_API_KEY:
+        raise Exception("There is no env INFURA_API_KEY")
     # 连接到Infura的以太坊节点
     infura_url = f"https://mainnet.infura.io/v3/{INFURA_API_KEY}"
     ethers = Web3(Web3.HTTPProvider(infura_url))
